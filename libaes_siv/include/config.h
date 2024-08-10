@@ -1,0 +1,8 @@
+#ifndef AES_SIV_CONFIG_H_
+#define AES_SIV_CONFIG_H_
+
+#define ENABLE_CTGRIND 0
+#define ENABLE_DEBUG_WEIRD_ENDIAN 0
+#define ENABLE_DEBUG_TINY_CHUNK_SIZE 0
+
+#endif

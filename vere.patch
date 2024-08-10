@@ -1,0 +1,12 @@
+diff --git a/pkg/c3/portable.h b/pkg/c3/portable.h
+index 002276834b..52ebb7817d 100644
+--- a/pkg/c3/portable.h
++++ b/pkg/c3/portable.h
+@@ -36,7 +36,6 @@
+ #     include <sys/time.h>
+ #     include <sys/resource.h>
+ #     include <sys/mman.h>
+-#     include <sys/sendfile.h>
+ 
+ #   elif defined(U3_OS_osx)
+ #     include <ctype.h>
