@@ -6,16 +6,8 @@
       url = "github:urbit/vere?ref=master";
       flake = false;
     };
-    urcrypt = {
-      url = "github:urbit/urcrypt";
-      flake = false;
-    };
     murmur3 = {
       url = "github:PeterScott/murmur3";
-      flake = false;
-    };
-    libaes_siv = {
-      url = "github:dfoxfranke/libaes_siv";
       flake = false;
     };
     pdjson = {
@@ -26,9 +18,13 @@
       url = "github:ucb-bar/berkeley-softfloat-3";
       flake = false;
     };
+    sha256 = {
+      url = "github:LekKit/sha256";
+      flake = false;
+    };
   };
-  outputs = inputs@{ self, nixpkgs, flake-utils, vere, murmur3, pdjson
-    , softfloat, ... }:
+  outputs =
+    inputs@{ self, nixpkgs, flake-utils, vere, murmur3, pdjson, sha256, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let pkgs = nixpkgs.legacyPackages.${system};
       in {
@@ -44,101 +40,36 @@
             make
             make install
           '';
-          openssl = pkgs.openssl.overrideDerivation (old: {
-            configurePhase = ''
-              HOME=$TMPDIR
-              ${pkgs.emscripten}/bin/emconfigure ./Configure --no-asm --no-apps --prefix=$out ${
-                builtins.concatStringsSep " " old.configureFlags
-              }
-            '';
-            doCheck = false;
-          });
-          secp256k1 = pkgs.secp256k1.overrideDerivation (old: {
-            configurePhase = ''
-              ./autogen.sh
-              HOME=$TMPDIR
-              ${pkgs.emscripten}/bin/emconfigure ./configure --prefix=$out ${
-                builtins.concatStringsSep " " old.configureFlags
-              }
-            '';
-            doCheck = false;
-          });
-          libaes_siv = pkgs.runCommand "libaes_siv" {
-            buildInputs = with pkgs; [ emscripten ];
-          } ''
-            mkdir -p $out
-            HOME=$TMPDIR
-            emcc ${inputs.libaes_siv}/aes_siv.c -I${
-              ./libaes_siv/include
-            } -o $out/lib/libaes_siv.a
-            mkdir -p $out/include
-            cp ${inputs.libaes_siv}/aes_siv.h $out/include
-          '';
-          # libaes_siv = pkgs.stdenv.mkDerivation {
-          #   name = "libaes_siv";
-          #   src = inputs.libaes_siv;
-          #   # configurePhase = ''
-          #   #   HOME=$TMPDIR
-          #   #   ${pkgs.emscripten}/bin/emconfigure ./configure --prefix=$out
-          #   # '';
-          #   buildInputs = with pkgs; [ cmake openssl ];
-          # };
-          urcrypt = pkgs.stdenv.mkDerivation {
-            name = "urcrypt";
-            src = inputs.urcrypt;
-            configurePhase = ''
-              runHook preConfigure
-
-              ./autogen.sh
-              HOME=$TMPDIR
-              emconfigure ./configure --prefix=$out
-
-              runHook preConfigure
-            '';
-            buildInputs = with pkgs; [
-              secp256k1
-              pkg-config
-              libaes_siv
-              openssl
-            ];
-            nativeBuildInputs = with pkgs; [
-              emscripten
-              autoconf
-              automake
-              autoconf-archive
-              libtool
-            ];
-          };
+          softfloat =
+            pkgs.callPackage ./softfloat.nix { inherit (inputs) softfloat; };
           nock = pkgs.runCommand "nock" { } ''
             cp -r ${vere}/pkg .
             chmod -R a+w pkg
             cp pkg/noun/platform/linux/rsignal.h pkg/noun/platform/rsignal.h
             patch -p1 <${./vere.patch}
-            rm pkg/noun/*_tests.c
+            rm pkg/noun/*_tests.c pkg/noun/jets/e/aes* pkg/noun/jets/e/argon2.c \
+              pkg/noun/jets/e/blake.c pkg/noun/jets/e/ed_* pkg/noun/jets/e/keccak.c \
+              pkg/noun/jets/e/ripe.c pkg/noun/jets/e/scr.c pkg/noun/jets/e/secp.c \
+              pkg/noun/jets/e/sha1.c pkg/noun/jets/e/shax.c 
             mkdir -p $out
             HOME=$TMPDIR
             ${pkgs.emscripten}/bin/emcc \
-              pkg/noun/*.c pkg/noun/jets/*/*.c pkg/noun/jets/*.c pkg/c3/*.c pkg/ur/*.c ${urcrypt}/lib/liburcrypt.a \
-              ${murmur3}/murmur3.c ${pdjson}/pdjson.c ${gmp}/lib/libgmp.a ${urcrypt}/lib/liburcrypt.a \
+              pkg/noun/*.c pkg/noun/jets/*/*.c pkg/noun/jets/*.c pkg/c3/*.c pkg/ur/*.c \
+              ${murmur3}/murmur3.c ${pdjson}/pdjson.c ${gmp}/lib/libgmp.a ${sha256}/sha256.c \
+              ${softfloat}/lib/softfloat.a \
               -o $out/nock.js \
               -DU3_OS_linux \
               -DU3_OS_ENDIAN_little \
               -DU3_GUARD_PAGE \
               -sEXPORTED_RUNTIME_METHODS=cwrap \
               -Ipkg -Ipkg/noun -Ipkg/c3 -Ipkg/ur -Ipkg/ent -I. \
-              -I${pdjson} -I${gmp}/include -I${murmur3} -I${urcrypt}/include -I${pkgs.libsigsegv}/include \
-              -I${pkgs.openssl.dev}/include -I${softfloat}/source/include \
+              -I${pdjson} -I${gmp}/include -I${murmur3} -I${pkgs.libsigsegv}/include \
+              -I${softfloat}/include -I${sha256} \
               -sEXPORTED_FUNCTIONS=_u3n_nock_on \
               # -Os
 
           '';
-          hello = pkgs.hello;
-          default = hello;
         };
-        apps = rec {
-          hello =
-            flake-utils.lib.mkApp { drv = self.packages.${system}.hello; };
-          default = hello;
-        };
+        apps = { };
       });
 }
