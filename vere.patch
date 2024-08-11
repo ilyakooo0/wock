@@ -1,5 +1,5 @@
 diff --git a/pkg/c3/portable.h b/pkg/c3/portable.h
-index 002276834b..52ebb7817d 100644
+index 002276834b..0995b21fcc 100644
 --- a/pkg/c3/portable.h
 +++ b/pkg/c3/portable.h
 @@ -36,7 +36,6 @@
@@ -10,6 +10,15 @@ index 002276834b..52ebb7817d 100644
  
  #   elif defined(U3_OS_osx)
  #     include <ctype.h>
+@@ -145,6 +144,8 @@
+ #     error "port: LoomBase"
+ #   endif
+ 
++#define U3_OS_LoomBits 30
++#define U3_OS_LoomBase 0
+ 
+   /** Private C "extensions."
+   ***
 diff --git a/pkg/noun/jets.c b/pkg/noun/jets.c
 index 45e7e8144a..0003896370 100644
 --- a/pkg/noun/jets.c
@@ -33,7 +42,7 @@ index 45e7e8144a..0003896370 100644
        pro = u3i_bytes(32, dig_y);
        u3h_put(u3R->jed.bas_p, bat, u3k(pro));
 diff --git a/pkg/noun/jets/tree.c b/pkg/noun/jets/tree.c
-index 9e920becda..e6e17261f3 100644
+index 9e920becda..021fe0c88a 100644
 --- a/pkg/noun/jets/tree.c
 +++ b/pkg/noun/jets/tree.c
 @@ -53,7 +53,6 @@ static c3_c* _140_hex_mimes_ha[] = {
@@ -51,7 +60,7 @@ index 9e920becda..e6e17261f3 100644
 -    { { "en", 7, _140_hex_aes_ecba_en_a, 0, _140_hex_aes_ecba_en_ha },
 -      { "de", 7, _140_hex_aes_ecba_de_a, 0, _140_hex_aes_ecba_de_ha },
 -      {}
-+    {
++    { {}
      };
    static c3_c* _140_hex_aes_ecba_ha[] = {
      "693409d27b777f73ce92cebd38e9ebceebe1e9c27ad8c9de9afc091e31bd7d9f",
@@ -69,7 +78,7 @@ index 9e920becda..e6e17261f3 100644
 -    { { "en", 7, _140_hex_aes_ecbb_en_a, 0, _140_hex_aes_ecbb_en_ha },
 -      { "de", 7, _140_hex_aes_ecbb_de_a, 0, _140_hex_aes_ecbb_de_ha },
 -      {}
-+    {
++    { {}
      };
    static c3_c* _140_hex_aes_ecbb_ha[] = {
      "7255c39f10e068007d0d64dd40e4f6e83492ed2e3222919440be0d28fd42a5e3",
@@ -90,7 +99,7 @@ index 9e920becda..e6e17261f3 100644
 -    { { "en", 7, _140_hex_aes_ecbc_en_a, 0, _140_hex_aes_ecbc_en_ha },
 -      { "de", 7, _140_hex_aes_ecbc_de_a, 0, _140_hex_aes_ecbc_de_ha },
 -      {}
-+    {
++    { {}
      };
    static c3_c* _140_hex_aes_ecbc_ha[] = {
      "65da73b8de06a6660ca2d36be881b708362e1f8bc12c01290aed90fdb2977667",
@@ -111,7 +120,7 @@ index 9e920becda..e6e17261f3 100644
 -    { { "en", 7, _140_hex_aes_cbca_en_a, 0, _140_hex_aes_cbca_en_ha },
 -      { "de", 7, _140_hex_aes_cbca_de_a, 0, _140_hex_aes_cbca_de_ha },
 -      {}
-+    {
++    { {}
      };
    static c3_c* _140_hex_aes_cbca_ha[] = {
      "420d04c03b7816b656fe4e8d9fce04f7e6d51d3d274c6511e89cfdb43ebf107e",
@@ -132,7 +141,7 @@ index 9e920becda..e6e17261f3 100644
 -    { { "en", 7, _140_hex_aes_cbcb_en_a, 0, _140_hex_aes_cbcb_en_ha },
 -      { "de", 7, _140_hex_aes_cbcb_de_a, 0, _140_hex_aes_cbcb_de_ha },
 -      {}
-+    {
++    { {}
      };
    static c3_c* _140_hex_aes_cbcb_ha[] = {
      "1b84daab497795f2afd7238a6a6090be68b78eb6051b0ffa076b2ed9fedeebe5",
@@ -153,7 +162,7 @@ index 9e920becda..e6e17261f3 100644
 -    { { "en", 7, _140_hex_aes_cbcc_en_a, 0, _140_hex_aes_cbcc_en_ha },
 -      { "de", 7, _140_hex_aes_cbcc_de_a, 0, _140_hex_aes_cbcc_de_ha },
 -      {}
-+    {
++    { {}
      };
    static c3_c* _140_hex_aes_cbcc_ha[] = {
      "3bab1a59c7673afeb659821d54754e8e5e281243e79624fdbe4d7f85cae192c5",
@@ -174,7 +183,7 @@ index 9e920becda..e6e17261f3 100644
 -    { { "en", 7, _140_hex_aes_siva_en_a, 0, _140_hex_aes_siva_en_ha },
 -      { "de", 7, _140_hex_aes_siva_de_a, 0, _140_hex_aes_siva_de_ha },
 -      {}
-+    {
++    { {}
      };
    static c3_c* _140_hex_aes_siva_ha[] = {
      "435c5c769d2522d71ab60332bb57440d69c6803d5ca9a5faae88c825cb55d72e",
@@ -195,7 +204,7 @@ index 9e920becda..e6e17261f3 100644
 -    { { "en", 7, _140_hex_aes_sivb_en_a, 0, _140_hex_aes_sivb_en_ha },
 -      { "de", 7, _140_hex_aes_sivb_de_a, 0, _140_hex_aes_sivb_de_ha },
 -      {}
-+    {
++    { {}
      };
    static c3_c* _140_hex_aes_sivb_ha[] = {
      "0683f3f9067c2a16f68805c778c404179dc5df9019bbbe0f8d680a99a69e61fc",
@@ -216,7 +225,7 @@ index 9e920becda..e6e17261f3 100644
 -    { { "en", 7, _140_hex_aes_sivc_en_a, 0, _140_hex_aes_sivc_en_ha },
 -      { "de", 7, _140_hex_aes_sivc_de_a, 0, _140_hex_aes_sivc_de_ha },
 -      {}
-+    {
++    { {}
      };
    static c3_c* _140_hex_aes_sivc_ha[] = {
      "23ef582f110d28aff82b0795305b02e5a718d667bcae97091c08bc26790e7176",
@@ -293,7 +302,7 @@ index 9e920becda..e6e17261f3 100644
 -      _140_hex_coed__ed_add_double_scalarmult_a, 0,
 -      _140_hex_coed__ed_add_double_scalarmult_ha },
 -    {}
-+  {
++  { {}
    };
  static c3_c* _140_hex_coed__ed_ha[] = {
    "7a44a962aa72933588b5c99a8b68ebac21ce3c4710c081cb66b3599b45af9ced",
@@ -309,7 +318,7 @@ index 9e920becda..e6e17261f3 100644
  static u3j_core _140_hex_argon_d[] =
 -  { { "argon2", 511, _140_hex_argon2_a, 0, _140_hex_argon2_ha },
 -    {}
-+  {
++  { {}
    };
  static c3_c* _140_hex_argon_ha[] = {
    "dc704c786192ecd09d4c206a8f28db3202b6e0eb03e3ce63a95987510ac312d6",
@@ -330,7 +339,7 @@ index 9e920becda..e6e17261f3 100644
 -    { "hsh", 7, _140_hex_scr_hsh_a, 0, _140_hex_scr_hsh_ha },
 -    { "hsl", 7, _140_hex_scr_hsl_a, 0, _140_hex_scr_hsl_ha },
 -    {}
-+  {
++  { {}
    };
  static c3_c* _140_hex_scr_ha[] = { 0 };
  
@@ -355,7 +364,7 @@ index 9e920becda..e6e17261f3 100644
 -          _140_hex_secp_secp256k1_schnorr_sove_a, 0,
 -          _140_hex_secp_secp256k1_schnorr_sove_ha },
 -        {}
-+      {
++      { {}
        };
      static c3_c* _140_hex_secp_secp256k1_schnorr_ha[] = { 0 };
  
@@ -380,7 +389,7 @@ index 9e920becda..e6e17261f3 100644
  static u3j_core _140_hex_blake_d[] =
 -  { { "blake2b", 7, _140_hex_blake2b_a, 0, _140_hex_blake2b_ha },
 -    {}
-+  {
++  { {}
    };
  static c3_c* _140_hex_blake_ha[] = {
    "ff30d99ffb3e13d8aa50b2b8461c8edfabf0e76de22312d16d1d6daaf3636b5f",
@@ -401,7 +410,7 @@ index 9e920becda..e6e17261f3 100644
 -    { "k384", 7, _140_hex_kecc_k384_a, 0, no_hashes },
 -    { "k512", 7, _140_hex_kecc_k512_a, 0, no_hashes },
 -    {}
-+  {
++  { {}
    };
  
 -  static u3j_harm _140_hex_ripemd_160_a[] = {{".2", u3we_ripe, c3y}, {}};
@@ -412,7 +421,7 @@ index 9e920becda..e6e17261f3 100644
  static u3j_core _140_hex_ripe_d[] =
 -  { { "ripemd160", 7, _140_hex_ripemd_160_a, 0, _140_hex_ripemd_160_ha },
 -    {}
-+  {
++  { {}
    };
  static c3_c* _140_hex_ripe_ha[] = {
    "b0cb16bf206c0496bb480e5759ea1afa7dee1748b64e5243c23fddb09720ebd0",
@@ -428,7 +437,7 @@ index 9e920becda..e6e17261f3 100644
  static u3j_core _140_tri__og_d[] =
 -  { { "raw", 7, _140_tri__og_raw_a, 0, _140_tri__og_raw_ha },
 -    {}
-+  {
++  { {}
    };
  static c3_c* _140_tri__og_ha[] = {
    "74b9ae67eeabbffcff969ac7fdc7f4f0f4f67af64931e969bcac50d084e15fc0",
@@ -443,7 +452,7 @@ index 9e920becda..e6e17261f3 100644
  static u3j_core _140_tri__sha_d[] =
 -  { { "sha1", 7, _140_tri__sha_sha1_a, 0, _140_tri__sha_sha1_ha },
 -    {}
-+  {
++  { {}
    };
  static c3_c* _140_tri__sha_ha[] = {
    "3c22d2f8719cb626e8dfe1a4206bcbc14b678c1422c48322054b40f84416d557",
@@ -508,7 +517,7 @@ index 9e920becda..e6e17261f3 100644
    { "ob", 3, 0, _140_ob_d, no_hashes, _140_ob_ho },
    {}
 diff --git a/pkg/noun/manage.c b/pkg/noun/manage.c
-index d880a42032..55c6b9d6c2 100644
+index d880a42032..6b4caf1725 100644
 --- a/pkg/noun/manage.c
 +++ b/pkg/noun/manage.c
 @@ -17,12 +17,10 @@
@@ -547,10 +556,12 @@ index d880a42032..55c6b9d6c2 100644
  /* _cm_realloc2(): gmp-shaped realloc.
  */
  static void*
-@@ -2031,7 +2013,6 @@ u3m_init(size_t len_i)
+@@ -2029,9 +2011,6 @@ _cm_free2(void* tox_v, size_t siz_i)
+ void
+ u3m_init(size_t len_i)
  {
-   _cm_limits();
-   _cm_signals();
+-  _cm_limits();
+-  _cm_signals();
 -  _cm_crypto();
  
    //  make sure GMP uses our malloc.
