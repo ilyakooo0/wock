@@ -18,6 +18,22 @@
         "type": "github"
       }
     },
+    "libaes_siv": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1602781365,
+        "narHash": "sha256-8X9Nd2H1wM5wIoG3nPp0Kc5f4LyX0mjNPx1fXirwnLw=",
+        "owner": "dfoxfranke",
+        "repo": "libaes_siv",
+        "rev": "9681279cfaa6e6399bb7ca3afbbc27fc2e19df4b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "dfoxfranke",
+        "repo": "libaes_siv",
+        "type": "github"
+      }
+    },
     "murmur3": {
       "flake": false,
       "locked": {
@@ -69,11 +85,13 @@
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
+        "libaes_siv": "libaes_siv",
         "murmur3": "murmur3",
         "nixpkgs": "nixpkgs",
         "pdjson": "pdjson",
         "sha256": "sha256",
         "softfloat": "softfloat",
+        "urcrypt": "urcrypt",
         "vere": "vere"
       }
     },
@@ -121,6 +139,23 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default",
+        "type": "github"
+      }
+    },
+    "urcrypt": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1700079762,
+        "narHash": "sha256-GkhqvhDyhsdzjWpR8uqmhdRdhxdpmLGWXtIUZPAbWZs=",
+        "owner": "urbit",
+        "repo": "urcrypt",
+        "rev": "43479c3262a11e20da5f6218f3b0b3d63931ceea",
+        "type": "github"
+      },
+      "original": {
+        "owner": "urbit",
+        "repo": "urcrypt",
+        "rev": "43479c3262a11e20da5f6218f3b0b3d63931ceea",
         "type": "github"
       }
     },
