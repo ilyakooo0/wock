@@ -66,6 +66,19 @@
             '';
             doCheck = false;
           });
+          secp256k1 = pkgs.secp256k1.overrideDerivation (old: {
+            configurePhase = ''
+              runHook preConfigure
+
+              HOME=$TMPDIR
+              ${pkgs.emscripten}/bin/emconfigure ./configure --prefix=$out ${
+                builtins.concatStringsSep " " old.configureFlags
+              }
+
+              runHook postConfigure
+            '';
+            doCheck = false;
+          });
           openssl = pkgs.openssl_1_1.overrideDerivation (old: {
             configurePhase = ''
               runHook preConfigure
@@ -90,24 +103,11 @@
           } ''
             mkdir -p $out/lib
             HOME=$TMPDIR
-            emcc ${inputs.libaes_siv}/aes_siv.c -I${
+            emcc -c ${inputs.libaes_siv}/aes_siv.c -I${
               ./libaes_siv/include
             } -I${openssl.dev}/include -o $out/lib/aes_siv.o
             mkdir -p $out/include
             cp ${inputs.libaes_siv}/aes_siv.h $out/include/aes_siv.h
-          '';
-          argon2 = pkgs.runCommand "argon2" {
-            buildInputs = with pkgs; [ emscripten ];
-          } ''
-            cp -r ${inputs.urcrypt}/argon2/src src
-            chmod -R +w src
-
-            mkdir -p $out/lib
-            HOME=$TMPDIR
-            emcc src/argon2.c src/blake2/blake2b.c src/core.c src/encoding.c src/thread.c -I${inputs.urcrypt}/argon2/include -o $out/lib/argon2.a
-
-            mkdir -p $out/include
-            cp ${inputs.urcrypt}/argon2/include/argon2.h src/blake2/blake2.h $out/include
           '';
           urcrypt = pkgs.runCommand "urcrypt" {
             nativeBuildInputs = with pkgs; [ emscripten ];
@@ -116,17 +116,20 @@
             chmod +w -R src
 
             mkdir -p $out/lib
+            mkdir -p $out/include
             HOME=$TMPDIR
-            emcc -I${openssl.dev}/include -I${libaes_siv}/include \
+            emcc -c -I${openssl.dev}/include -I${libaes_siv}/include \
             src/argon2/src/argon2.c src/argon2/src/blake2/blake2b.c \
             src/argon2/src/core.c src/argon2/src/encoding.c src/argon2/src/thread.c \
             src/argon2/src/ref.c src/ed25519/src/*.c src/ge-additions/ge-additions.c \
             src/keccak-tiny/keccak-tiny.c src/scrypt/*.c \
             src/urcrypt/*.c \
-            -I${pkgs.secp256k1}/include -I${pkgs.libb2}/include -Isrc/argon2/include \
+            -I${secp256k1}/include -I${pkgs.libb2}/include -Isrc/argon2/include \
             -Isrc/ed25519/src/ -Isrc/ge-additions -Isrc/keccak-tiny -Isrc/scrypt \
-            -Wno-int-conversion \
-            -o $out/lib/urcrypt.a
+            -Wno-int-conversion
+            emar rcs $out/lib/urcrypt.a *.o
+
+            cp src/urcrypt/urcrypt.h $out/include
           '';
           softfloat =
             pkgs.callPackage ./softfloat.nix { inherit (inputs) softfloat; };
@@ -135,10 +138,7 @@
             chmod -R a+w pkg
             cp pkg/noun/platform/linux/rsignal.h pkg/noun/platform/rsignal.h
             patch -p1 <${./vere.patch}
-            rm pkg/noun/*_tests.c pkg/noun/jets/e/aes* pkg/noun/jets/e/argon2.c \
-              pkg/noun/jets/e/blake.c pkg/noun/jets/e/ed_* pkg/noun/jets/e/keccak.c \
-              pkg/noun/jets/e/ripe.c pkg/noun/jets/e/scr.c pkg/noun/jets/e/secp.c \
-              pkg/noun/jets/e/sha1.c pkg/noun/jets/e/shax.c 
+            rm pkg/noun/*_tests.c
             mkdir -p $out
             HOME=$TMPDIR
             ${pkgs.emscripten}/bin/emcc \
@@ -146,17 +146,18 @@
               pkg/noun/v3/*.c pkg/noun/v2/*.c pkg/noun/v1/*.c \
               ${murmur3}/murmur3.c ${pdjson}/pdjson.c ${gmp}/lib/libgmp.a ${sha256}/sha256.c \
               ${softfloat}/lib/softfloat.a ${libsigsegv}/lib/libsigsegv.a ${urcrypt}/lib/urcrypt.a \
+              ${openssl.out}/lib/libcrypto.a ${libaes_siv}/lib/aes_siv.o ${secp256k1}/lib/libsecp256k1.a \
               -o $out/nock.js \
               -DU3_OS_linux \
               -DU3_OS_ENDIAN_little \
               -DU3_GUARD_PAGE \
-              -sWASM=0 \
+              -sWASM=1 \
               -sEXPORTED_RUNTIME_METHODS=cwrap \
               -sALLOW_MEMORY_GROWTH \
               -sINITIAL_MEMORY=536870912 \
               -Ipkg -Ipkg/noun -Ipkg/c3 -Ipkg/ur -Ipkg/ent -I. \
               -I${pdjson} -I${gmp}/include -I${murmur3} -I${libsigsegv}/include \
-              -I${softfloat}/include -I${sha256} \
+              -I${softfloat}/include -I${sha256} -I${urcrypt}/include \
               -sEXPORTED_FUNCTIONS=_u3n_nock_on,_u3m_boot_lite,_u3s_cue_bytes \
               -sEXPORTED_RUNTIME_METHODS=cwrap \
               # -Os
