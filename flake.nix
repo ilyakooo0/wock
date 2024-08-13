@@ -123,7 +123,6 @@
             emcc -c src/urcrypt/*.c src/argon2/src/*.c src/argon2/src/blake2/*.c \
             src/blake3/blake3_portable.c \
             src/blake3/blake3_dispatch.c \
-            src/blake3/blake3.c \
             src/ed25519/src/*.c \
             src/scrypt/*.c src/ge-additions/ge-additions.c \
             src/keccak-tiny/keccak-tiny.c \
