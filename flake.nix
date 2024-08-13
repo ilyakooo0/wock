@@ -115,6 +115,8 @@
             cp -r ${inputs.urcrypt} src
             chmod +w -R src
 
+            rm src/scrypt/main.c
+
             mkdir -p $out/lib
             mkdir -p $out/include
             HOME=$TMPDIR
@@ -143,7 +145,7 @@
             HOME=$TMPDIR
             ${pkgs.emscripten}/bin/emcc \
               pkg/noun/*.c pkg/noun/jets/*/*.c pkg/noun/jets/*.c pkg/c3/*.c pkg/ur/*.c \
-              pkg/noun/v3/*.c pkg/noun/v2/*.c pkg/noun/v1/*.c \
+              pkg/noun/v3/*.c pkg/noun/v2/*.c pkg/noun/v1/*.c pkg/ent/ent.c \
               ${murmur3}/murmur3.c ${pdjson}/pdjson.c ${gmp}/lib/libgmp.a ${sha256}/sha256.c \
               ${softfloat}/lib/softfloat.a ${libsigsegv}/lib/libsigsegv.a ${urcrypt}/lib/urcrypt.a \
               ${openssl.out}/lib/libcrypto.a ${libaes_siv}/lib/aes_siv.o ${secp256k1}/lib/libsecp256k1.a \
@@ -151,13 +153,14 @@
               -DU3_OS_linux \
               -DU3_OS_ENDIAN_little \
               -DU3_GUARD_PAGE \
+              -DENT_GETENTROPY_SYSRANDOM \
               -sWASM=1 \
               -sEXPORTED_RUNTIME_METHODS=cwrap \
               -sALLOW_MEMORY_GROWTH \
               -sINITIAL_MEMORY=536870912 \
               -Ipkg -Ipkg/noun -Ipkg/c3 -Ipkg/ur -Ipkg/ent -I. \
               -I${pdjson} -I${gmp}/include -I${murmur3} -I${libsigsegv}/include \
-              -I${softfloat}/include -I${sha256} -I${urcrypt}/include \
+              -I${softfloat}/include -I${sha256} -I${urcrypt}/include -I${openssl.dev}/include \
               -sEXPORTED_FUNCTIONS=_u3n_nock_on,_u3m_boot_lite,_u3s_cue_bytes \
               -sEXPORTED_RUNTIME_METHODS=cwrap \
               # -Os
