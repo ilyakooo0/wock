@@ -145,28 +145,28 @@
     "urcrypt": {
       "flake": false,
       "locked": {
-        "lastModified": 1700079762,
-        "narHash": "sha256-GkhqvhDyhsdzjWpR8uqmhdRdhxdpmLGWXtIUZPAbWZs=",
+        "lastModified": 1706202942,
+        "narHash": "sha256-xAhxBgh1bTg4x3gsyQdCW8ILHdAMGpAReW4nxqRuQmQ=",
         "owner": "urbit",
         "repo": "urcrypt",
-        "rev": "43479c3262a11e20da5f6218f3b0b3d63931ceea",
+        "rev": "9ae5d604528bc54ae48430f55ebbb17b1ad7956c",
         "type": "github"
       },
       "original": {
         "owner": "urbit",
         "repo": "urcrypt",
-        "rev": "43479c3262a11e20da5f6218f3b0b3d63931ceea",
+        "rev": "9ae5d604528bc54ae48430f55ebbb17b1ad7956c",
         "type": "github"
       }
     },
     "vere": {
       "flake": false,
       "locked": {
-        "lastModified": 1710170699,
-        "narHash": "sha256-gBF3J4WtWHVpcCfcadKTuNrkQwPz+3TJAfNB6Q6U5Hc=",
+        "lastModified": 1723473625,
+        "narHash": "sha256-ygb6uIEHKX8EN2Zp75h5aP8TVWZUiItcOSsjdIf4Ous=",
         "owner": "urbit",
         "repo": "vere",
-        "rev": "954fd0b471105daa4b976f4088c009410536f9a8",
+        "rev": "be3b0424f7e07c09e8dea0a63874f5e8abeae443",
         "type": "github"
       },
       "original": {

@@ -12,7 +12,7 @@
       flake = false;
     };
     urcrypt = {
-      url = "github:urbit/urcrypt?rev=43479c3262a11e20da5f6218f3b0b3d63931ceea";
+      url = "github:urbit/urcrypt?rev=9ae5d604528bc54ae48430f55ebbb17b1ad7956c";
       flake = false;
     };
     pdjson = {
@@ -115,20 +115,29 @@
             cp -r ${inputs.urcrypt} src
             chmod +w -R src
 
-            rm src/scrypt/main.c
+            rm src/argon2/src/bench.c src/argon2/src/opt.c
 
             mkdir -p $out/lib
             mkdir -p $out/include
             HOME=$TMPDIR
-            emcc -c -I${openssl.dev}/include -I${libaes_siv}/include \
-            src/argon2/src/argon2.c src/argon2/src/blake2/blake2b.c \
-            src/argon2/src/core.c src/argon2/src/encoding.c src/argon2/src/thread.c \
-            src/argon2/src/ref.c src/ed25519/src/*.c src/ge-additions/ge-additions.c \
-            src/keccak-tiny/keccak-tiny.c src/scrypt/*.c \
-            src/urcrypt/*.c \
+            emcc -c src/urcrypt/*.c src/argon2/src/*.c src/argon2/src/blake2/*.c \
+            src/blake3/blake3_portable.c \
+            src/blake3/blake3_dispatch.c \
+            src/blake3/blake3.c \
+            src/ed25519/src/*.c \
+            src/scrypt/*.c src/ge-additions/ge-additions.c \
+            src/keccak-tiny/keccak-tiny.c \
+            -I${openssl.dev}/include -I${libaes_siv}/include \
             -I${secp256k1}/include -I${pkgs.libb2}/include -Isrc/argon2/include \
             -Isrc/ed25519/src/ -Isrc/ge-additions -Isrc/keccak-tiny -Isrc/scrypt \
-            -Wno-int-conversion
+            -Isrc/blake3 -Wno-int-conversion
+
+            emcc -c -o blake3_2.o src/blake3/blake3.c \
+            -I${openssl.dev}/include -I${libaes_siv}/include \
+            -I${secp256k1}/include -I${pkgs.libb2}/include -Isrc/argon2/include \
+            -Isrc/ed25519/src/ -Isrc/ge-additions -Isrc/keccak-tiny -Isrc/scrypt \
+            -Isrc/blake3 -Wno-int-conversion
+
             emar rcs $out/lib/urcrypt.a *.o
 
             cp src/urcrypt/urcrypt.h $out/include

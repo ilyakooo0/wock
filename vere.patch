@@ -19,75 +19,16 @@ index 002276834b..0995b21fcc 100644
  
    /** Private C "extensions."
    ***
-diff --git a/pkg/noun/jets.c b/pkg/noun/jets.c
-index 45e7e8144a..0003896370 100644
---- a/pkg/noun/jets.c
-+++ b/pkg/noun/jets.c
-@@ -14,7 +14,7 @@
- #include "retrieve.h"
- #include "serial.h"
- #include "trace.h"
--#include "urcrypt.h"
-+#include "sha256.h"
- #include "vortex.h"
- #include "xtract.h"
- 
-@@ -128,7 +128,7 @@ _cj_bash(u3_noun bat)
-       //
-       c3_y*    fat_y = sab_u.buf_y;
-       c3_y     dig_y[32];
--      urcrypt_shay(fat_y, met_w, dig_y);
-+      sha256_easy_hash(fat_y, met_w, dig_y);
- 
-       pro = u3i_bytes(32, dig_y);
-       u3h_put(u3R->jed.bas_p, bat, u3k(pro));
 diff --git a/pkg/noun/manage.c b/pkg/noun/manage.c
-index d880a42032..6b4caf1725 100644
+index d880a42032..e585d3403e 100644
 --- a/pkg/noun/manage.c
 +++ b/pkg/noun/manage.c
-@@ -17,12 +17,10 @@
- #include "jets/k.h"
- #include "log.h"
- #include "nock.h"
--#include "openssl/crypto.h"
- #include "options.h"
- #include "platform/rsignal.h"
- #include "retrieve.h"
- #include "trace.h"
--#include "urcrypt.h"
- #include "vortex.h"
- #include "xtract.h"
- 
-@@ -1992,22 +1990,6 @@ _cm_free_ssl(void* tox_v
- 
- extern void u3je_secp_init(void);
- 
--/* _cm_crypto(): initialize openssl and crypto jets.
--*/
--static void
--_cm_crypto()
--{
--  /* Initialize OpenSSL with loom allocation functions. */
--  if ( 0 == CRYPTO_set_mem_functions(&_cm_malloc_ssl,
--                                     &_cm_realloc_ssl,
--                                     &_cm_free_ssl) ) {
--    u3l_log("%s", "openssl initialization failed");
--    abort();
--  }
--
--  u3je_secp_init();
--}
--
- /* _cm_realloc2(): gmp-shaped realloc.
- */
- static void*
-@@ -2029,9 +2011,6 @@ _cm_free2(void* tox_v, size_t siz_i)
+@@ -2029,8 +2029,6 @@ _cm_free2(void* tox_v, size_t siz_i)
  void
  u3m_init(size_t len_i)
  {
 -  _cm_limits();
 -  _cm_signals();
--  _cm_crypto();
+   _cm_crypto();
  
    //  make sure GMP uses our malloc.
-   //
