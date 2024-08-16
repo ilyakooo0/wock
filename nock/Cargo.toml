@@ -1,0 +1,12 @@
+[package]
+name = "nock"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# ares = { git = "https://github.com/urbit/ares.git", rev = "0f45645a583401e368afeb6a27936ddacce6d1b9", version = "0.1.0" }
+ares = {path = "../../ares/rust/ares"}
+wasm-bindgen = "0.2.93"
