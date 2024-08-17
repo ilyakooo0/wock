@@ -90,16 +90,17 @@ fn hax_u32(addr: u32, new_value: Rc<Noun>, target: Rc<Noun>) -> Rc<Noun> {
     match addr {
         0 => panic!(),
         1 => new_value,
-        _ => match (*target).clone() {
-            Noun::Atom(_) => panic!(),
-            Noun::Cell(p, q) => {
-                if (addr & 1) == 1 {
-                    cell(hax_u32(addr, new_value, p), q)
-                } else {
-                    cell(p, hax_u32(addr, new_value, q))
-                }
+        _ => {
+            let next_addr = addr >> 1;
+            let Noun::Cell(p, q) = (*target).clone() else {
+                panic!()
+            };
+            if (addr & 1) == 1 {
+                cell(p, hax_u32(next_addr, new_value, q))
+            } else {
+                cell(hax_u32(next_addr, new_value, p), q)
             }
-        },
+        }
     }
 }
 
@@ -110,20 +111,29 @@ fn hax(addr: Atom, new_value: Rc<Noun>, target: Rc<Noun>) -> Rc<Noun> {
         0 => panic!(),
         1 => hax_u32(addr_iter.next().expect("invariant"), new_value, target),
         _ => {
-            let a = &addr >> 1;
-            if (&addr & one_big_uint()) == one_big_uint() {
-                hax(
-                    a,
-                    cell(fas(addr - 1u32, target.clone()), target.clone()),
-                    target.clone(),
-                )
+            let next_addr = &addr >> 1u32;
+            let Noun::Cell(p, q) = (*target).clone() else {
+                panic!()
+            };
+            if (addr & one_big_uint()) == one_big_uint() {
+                cell(p, hax(next_addr, new_value, q))
             } else {
-                hax(
-                    a,
-                    Rc::new(Noun::Cell(new_value, fas(addr + 1u32, target.clone()))),
-                    target,
-                )
+                cell(hax(next_addr, new_value, p), q)
             }
+            // let a = &addr >> 1;
+            // if (&addr & one_big_uint()) == one_big_uint() {
+            //     hax(
+            //         a,
+            //         cell(fas(addr - 1u32, target.clone()), target.clone()),
+            //         target.clone(),
+            //     )
+            // } else {
+            //     hax(
+            //         a,
+            //         Rc::new(Noun::Cell(new_value, fas(addr + 1u32, target.clone()))),
+            //         target,
+            //     )
+            // }
         }
     }
 }
