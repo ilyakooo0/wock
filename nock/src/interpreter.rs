@@ -40,12 +40,6 @@ fn tis(lhs: Rc<Noun>, rhs: Rc<Noun>) -> Noun {
     } else {
         atom(1)
     }
-    // match ((*lhs).clone(), (*rhs).clone()) {
-    //     (Noun::Atom(lhs), Noun::Atom(rhs)) => if lhs == rhs {Noun::SIG} else {atom(1)}
-    //     (Noun::Cell(lhs_lhs, lhs_rhs), Noun::Cell(rhs_lhs, rhs_rhs)) =>
-    //       if *lhs_lhs == *rhs_lhs && *lhs_rhs == *rhs_rhs {Noun::SIG} else {atom(1)} ,
-    //     _ => panic!()
-    // }
 }
 
 fn fas(addr: Atom, noun: Rc<Noun>) -> Rc<Noun> {
@@ -90,17 +84,15 @@ fn hax_u32(addr: u32, new_value: Rc<Noun>, target: Rc<Noun>) -> Rc<Noun> {
     match addr {
         0 => panic!(),
         1 => new_value,
-        _ => {
-            let next_addr = addr >> 1;
-            let Noun::Cell(p, q) = (*target).clone() else {
-                panic!()
-            };
+        _ => hax_u32(
+            addr >> 1,
             if (addr & 1) == 1 {
-                cell(p, hax_u32(next_addr, new_value, q))
+                cell(fas_u32(addr - 1, target.clone()), new_value)
             } else {
-                cell(hax_u32(next_addr, new_value, p), q)
-            }
-        }
+                cell(new_value, fas_u32(addr + 1, target.clone()))
+            },
+            target,
+        ),
     }
 }
 
@@ -110,31 +102,15 @@ fn hax(addr: Atom, new_value: Rc<Noun>, target: Rc<Noun>) -> Rc<Noun> {
     match addr_iter.len() {
         0 => panic!(),
         1 => hax_u32(addr_iter.next().expect("invariant"), new_value, target),
-        _ => {
-            let next_addr = &addr >> 1u32;
-            let Noun::Cell(p, q) = (*target).clone() else {
-                panic!()
-            };
-            if (addr & one_big_uint()) == one_big_uint() {
-                cell(p, hax(next_addr, new_value, q))
+        _ => hax(
+            &addr >> 1u32,
+            if (&addr & one_big_uint()) == one_big_uint() {
+                cell(fas(addr - one_big_uint(), target.clone()), new_value)
             } else {
-                cell(hax(next_addr, new_value, p), q)
-            }
-            // let a = &addr >> 1;
-            // if (&addr & one_big_uint()) == one_big_uint() {
-            //     hax(
-            //         a,
-            //         cell(fas(addr - 1u32, target.clone()), target.clone()),
-            //         target.clone(),
-            //     )
-            // } else {
-            //     hax(
-            //         a,
-            //         Rc::new(Noun::Cell(new_value, fas(addr + 1u32, target.clone()))),
-            //         target,
-            //     )
-            // }
-        }
+                cell(new_value, fas(addr + one_big_uint(), target.clone()))
+            },
+            target,
+        ),
     }
 }
 
@@ -261,4 +237,79 @@ pub fn eval_gate(gate: Rc<Noun>) -> Rc<Noun> {
             cell(atom_ref(2), cell(Rc::new(Noun::SIG), atom_ref(1))),
         ),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_wut() {
+        assert_eq!(wut(cell(atom_ref(1), atom_ref(2))), atom(0));
+        assert_eq!(wut(atom_ref(5)), atom(1));
+    }
+
+    #[test]
+    fn test_tis() {
+        assert_eq!(tis(atom_ref(1), atom_ref(1)), atom(0));
+        assert_eq!(tis(atom_ref(1), atom_ref(2)), atom(1));
+    }
+
+    #[test]
+    fn test_lus() {
+        assert_eq!(lus(atom_ref(5)), atom(6));
+    }
+
+    #[test]
+    fn test_fas() {
+        assert_eq!(
+            fas(
+                BigUint::new(vec![1]),
+                cell(atom_ref(531), cell(atom_ref(25), atom_ref(99)))
+            ),
+            cell(atom_ref(531), cell(atom_ref(25), atom_ref(99)))
+        );
+        assert_eq!(
+            fas(
+                BigUint::new(vec![6]),
+                cell(atom_ref(531), cell(atom_ref(25), atom_ref(99)))
+            ),
+            atom_ref(25)
+        );
+        assert_eq!(
+            fas(
+                BigUint::new(vec![3]),
+                cell(atom_ref(531), cell(atom_ref(25), atom_ref(99)))
+            ),
+            cell(atom_ref(25), atom_ref(99))
+        );
+    }
+
+    #[test]
+    fn test_hax() {
+        assert_eq!(
+            hax(
+                BigUint::new(vec![2]),
+                atom_ref(11),
+                cell(atom_ref(22), atom_ref(33))
+            ),
+            cell(atom_ref(11), atom_ref(33))
+        );
+        assert_eq!(
+            hax(
+                BigUint::new(vec![3]),
+                atom_ref(11),
+                cell(atom_ref(22), atom_ref(33))
+            ),
+            cell(atom_ref(22), atom_ref(11))
+        );
+        assert_eq!(
+            hax(
+                BigUint::new(vec![5]),
+                atom_ref(11),
+                cell(cell(atom_ref(22), atom_ref(33)), atom_ref(44))
+            ),
+            cell(cell(atom_ref(22), atom_ref(11)), atom_ref(44))
+        )
+    }
 }

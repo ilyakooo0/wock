@@ -1,7 +1,7 @@
-use std::io::{self, Read};
 use nock::{interpreter::eval_gate, serialization::cue_bytes};
+use std::io::{self, Read};
 
-fn main () {
+fn main() {
     let mut jammed_input = Vec::new();
     match io::stdin().read_to_end(&mut jammed_input) {
         Err(err) => panic!("{err}"),
