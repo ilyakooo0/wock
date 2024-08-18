@@ -1,7 +1,7 @@
-mod utils;
-mod noun;
 pub mod interpreter;
+pub mod noun;
 pub mod serialization;
+mod utils;
 
 use wasm_bindgen::prelude::*;
 
@@ -11,6 +11,4 @@ extern "C" {
 }
 
 #[wasm_bindgen]
-pub fn greet() {
-    
-}
+pub fn greet() {}

@@ -22,14 +22,14 @@ fn atom_ref(num: u32) -> Rc<Noun> {
 
 fn wut(noun: Rc<Noun>) -> Noun {
     match *noun {
-        Noun::Cell(_, _) => Noun::SIG,
+        Noun::Cell { .. } => Noun::SIG,
         Noun::Atom(_) => atom(1),
     }
 }
 
 fn lus(noun: Rc<Noun>) -> Noun {
     match (*noun).clone() {
-        Noun::Cell(_, _) => panic!(),
+        Noun::Cell { .. } => panic!(),
         Noun::Atom(atm) => Noun::Atom(atm + 1u32),
     }
 }
@@ -68,7 +68,7 @@ fn fas_u32(addr: u32, noun: Rc<Noun>) -> Rc<Noun> {
         1 => noun,
         n => match (*noun).clone() {
             Noun::Atom(_) => panic!(),
-            Noun::Cell(p, q) => match n {
+            Noun::Cell { p, q, .. } => match n {
                 2 => p,
                 3 => q,
                 _ => {
@@ -124,24 +124,40 @@ fn tar_u32(subj: Rc<Noun>, op: u32, formula: Rc<Noun>) -> Rc<Noun> {
         }
         1 => formula,
         2 => {
-            let Noun::Cell(b, c) = (*formula).clone() else {
+            let Noun::Cell { p: b, q: c, .. } = (*formula).clone() else {
                 panic!()
             };
-            tar(tar(subj.clone(), b), tar(subj, c))
+
+            match (*c).clone() {
+                Noun::Cell { p, q, .. }
+                    if *p == Noun::SIG
+                        && q == atom_ref(2)
+                        && b == cell(Rc::new(Noun::SIG), atom_ref(1)) =>
+                {
+                    // This means we are about the evaluate a gate at the head of the currehnt subject.
+
+                    // let gate = fas(axis.clone(), subj.clone());
+                    tar(tar(subj.clone(), b), tar(subj, c))
+                }
+                _ => tar(tar(subj.clone(), b), tar(subj, c)),
+            }
+
+            // let formula_hash = formula.hash();
+            // let sample = subj.right().left();
         }
         3 => Rc::new(wut(tar(subj, formula))),
         4 => Rc::new(lus(tar(subj, formula))),
         5 => {
-            let Noun::Cell(b, c) = (*formula).clone() else {
+            let Noun::Cell { p: b, q: c, .. } = (*formula).clone() else {
                 panic!()
             };
             Rc::new(tis(tar(subj.clone(), b), tar(subj, c)))
         }
         6 => {
-            let Noun::Cell(b, c) = (*formula).clone() else {
+            let Noun::Cell { p: b, q: c, .. } = (*formula).clone() else {
                 panic!()
             };
-            let Noun::Cell(c, d) = (*c).clone() else {
+            let Noun::Cell { p: c, q: d, .. } = (*c).clone() else {
                 panic!()
             };
 
@@ -159,19 +175,19 @@ fn tar_u32(subj: Rc<Noun>, op: u32, formula: Rc<Noun>) -> Rc<Noun> {
             )
         }
         7 => {
-            let Noun::Cell(b, c) = (*formula).clone() else {
+            let Noun::Cell { p: b, q: c, .. } = (*formula).clone() else {
                 panic!()
             };
             tar(tar(subj, b), c)
         }
         8 => {
-            let Noun::Cell(b, c) = (*formula).clone() else {
+            let Noun::Cell { p: b, q: c, .. } = (*formula).clone() else {
                 panic!()
             };
             tar(cell(tar(subj.clone(), b), subj), c)
         }
         9 => {
-            let Noun::Cell(b, c) = (*formula).clone() else {
+            let Noun::Cell { p: b, q: c, .. } = (*formula).clone() else {
                 panic!()
             };
             tar_u32(
@@ -184,10 +200,10 @@ fn tar_u32(subj: Rc<Noun>, op: u32, formula: Rc<Noun>) -> Rc<Noun> {
             )
         }
         10 => {
-            let Noun::Cell(b, d) = (*formula).clone() else {
+            let Noun::Cell { p: b, q: d, .. } = (*formula).clone() else {
                 panic!()
             };
-            let Noun::Cell(b, c) = (*b).clone() else {
+            let Noun::Cell { p: b, q: c, .. } = (*b).clone() else {
                 panic!()
             };
             let Noun::Atom(b) = (*b).clone() else {
@@ -197,12 +213,13 @@ fn tar_u32(subj: Rc<Noun>, op: u32, formula: Rc<Noun>) -> Rc<Noun> {
             hax(b, tar(subj.clone(), c), tar(subj, d))
         }
         11 => {
-            let Noun::Cell(b, d) = (*formula).clone() else {
+            println!("{formula}");
+            let Noun::Cell { p: b, q: d, .. } = (*formula).clone() else {
                 panic!()
             };
             match (*b).clone() {
                 Noun::Atom(_) => tar(subj, d),
-                Noun::Cell(_, c) => {
+                Noun::Cell { q: c, .. } => {
                     tar_u32(cell(tar(subj.clone(), c), tar(subj, d)), 0, atom_ref(3))
                 }
             }
@@ -212,11 +229,14 @@ fn tar_u32(subj: Rc<Noun>, op: u32, formula: Rc<Noun>) -> Rc<Noun> {
 }
 
 pub fn tar(subj: Rc<Noun>, formula: Rc<Noun>) -> Rc<Noun> {
-    let Noun::Cell(op, formula) = (*formula).clone() else {
+    let Noun::Cell {
+        p: op, q: formula, ..
+    } = (*formula).clone()
+    else {
         panic!()
     };
     match (*op).clone() {
-        Noun::Cell(_, _) => cell(tar(subj.clone(), op), tar(subj, formula)),
+        Noun::Cell { .. } => cell(tar(subj.clone(), op), tar(subj, formula)),
         Noun::Atom(op) => {
             let mut op_iter = op.iter_u32_digits();
             let op = match op_iter.len() {

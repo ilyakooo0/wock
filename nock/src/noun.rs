@@ -1,14 +1,22 @@
-use std::rc::Rc;
+use std::{ops::DerefMut, rc::Rc, str::FromStr};
 
 use num_bigint::BigUint;
+use num_traits::ConstZero;
 use std::fmt;
+use xxhash_rust::xxh3::xxh3_64;
 
 pub type Atom = BigUint;
+
+pub type Hash = u64;
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum Noun {
     Atom(Atom),
-    Cell(Rc<Noun>, Rc<Noun>),
+    Cell {
+        p: Rc<Noun>,
+        q: Rc<Noun>,
+        hash: Hash,
+    },
 }
 
 impl Noun {
@@ -19,13 +27,49 @@ impl Noun {
             _ => Option::None,
         }
     }
+
+    pub fn hash(self: &Self) -> Hash {
+        match self {
+            Noun::Cell { hash, .. } => *hash,
+            Noun::Atom(a) => xxh3_64(&*a.to_bytes_le()),
+        }
+    }
+
+    pub fn left(self: &Self) -> &Self {
+        match self {
+            Noun::Cell { p, .. } => p,
+            Noun::Atom(_) => panic!(),
+        }
+    }
+    pub fn right(self: &Self) -> &Self {
+        match self {
+            Noun::Cell { q, .. } => q,
+            Noun::Atom(_) => panic!(),
+        }
+    }
 }
 
 impl fmt::Display for Noun {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Noun::Cell(p, q) => write!(f, "[{} {}]", p, q),
-            Noun::Atom(a) => {
+        f.write_str(print_noun(Rc::new(self.clone()), false).as_str())
+    }
+}
+
+fn print_noun(noun: Rc<Noun>, is_rhs: bool) -> String {
+    match (*noun).clone() {
+        Noun::Cell { p, q, .. } if is_rhs => {
+            format!("{} {}", print_noun(p, false), print_noun(q, true))
+        }
+        Noun::Cell { p, q, .. } => format!("[{} {}]", print_noun(p, false), print_noun(q, true)),
+        Noun::Atom(a) => {
+            let atom_bytes = a.to_bytes_le();
+            if atom_bytes.len() > 1 && atom_bytes.into_iter().all(|c| (c > 33) && c < 126) {
+                format!("%{}", unsafe {
+                    String::from_utf8_unchecked(a.to_bytes_le())
+                })
+            } else if a == BigUint::ZERO {
+                String::from_str("~").unwrap()
+            } else {
                 let mut result = String::new();
                 let mut counter = 0;
                 for char in a.to_string().chars().rev() {
@@ -37,12 +81,16 @@ impl fmt::Display for Noun {
                     result.push(char);
                 }
                 let foo: String = result.chars().rev().collect();
-                f.write_str(&foo)
+                foo
             }
         }
     }
 }
 
 pub fn cell(p: Rc<Noun>, q: Rc<Noun>) -> Rc<Noun> {
-    Rc::new(Noun::Cell(p, q))
+    Rc::new(Noun::Cell {
+        p: p.clone(),
+        q: q.clone(),
+        hash: xxh3_64(&[p.hash().to_le_bytes(), q.hash().to_le_bytes()].as_flattened()),
+    })
 }
