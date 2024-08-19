@@ -1,7 +1,6 @@
-use std::{ops::DerefMut, rc::Rc, str::FromStr};
+use std::{rc::Rc, str::FromStr};
 
 use num_bigint::BigUint;
-use num_traits::ConstZero;
 use std::fmt;
 use xxhash_rust::xxh3::xxh3_64;
 
@@ -33,6 +32,28 @@ impl Noun {
             Noun::Cell { hash, .. } => *hash,
             Noun::Atom(a) => xxh3_64(&*a.to_bytes_le()),
         }
+    }
+
+    /// returns the hash and the current sample
+    pub fn hash_gate(self: &Self) -> (Hash, Rc<Noun>) {
+        let Noun::Cell {
+            p: battery,
+            q: payload,
+            ..
+        } = self
+        else {
+            panic!()
+        };
+        let Noun::Cell {
+            p: sample,
+            q: context,
+            ..
+        } = (**payload).clone()
+        else {
+            panic!()
+        };
+
+        (hash_pair((*battery).clone(), context), sample)
     }
 }
 
@@ -78,6 +99,10 @@ pub fn cell(p: Rc<Noun>, q: Rc<Noun>) -> Rc<Noun> {
     Rc::new(Noun::Cell {
         p: p.clone(),
         q: q.clone(),
-        hash: xxh3_64(&[p.hash().to_le_bytes(), q.hash().to_le_bytes()].as_flattened()),
+        hash: hash_pair(p, q),
     })
+}
+
+fn hash_pair(p: Rc<Noun>, q: Rc<Noun>) -> Hash {
+    xxh3_64(&[p.hash().to_le_bytes(), q.hash().to_le_bytes()].as_flattened())
 }

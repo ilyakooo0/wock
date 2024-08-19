@@ -1,4 +1,4 @@
-use nock::{noun::*, serialization::cue_bytes};
+use nock::serialization::cue_bytes;
 use std::io::{self, Read};
 
 fn main() {
@@ -10,25 +10,7 @@ fn main() {
 
     let gate = cue_bytes(&jammed_input);
 
-    let Noun::Cell {
-        p: battery,
-        q: payload,
-        ..
-    } = (*gate).clone()
-    else {
-        panic!()
-    };
-
-    let Noun::Cell {
-        p: _sample,
-        q: context,
-        ..
-    } = (*payload).clone()
-    else {
-        panic!()
-    };
-
-    let hash = cell(battery, context).hash();
+    let (hash, _sample) = gate.hash_gate();
 
     println!("{hash}");
 }

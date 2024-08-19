@@ -145,24 +145,7 @@ fn tar_u32(ctx: &InterpreterContext, subj: Rc<Noun>, op: u32, formula: Rc<Noun>)
                         && b == cell(Rc::new(Noun::SIG), atom_ref(1)) =>
                 {
                     // This means we are about the evaluate a gate at the head of the current subject.
-                    let Noun::Cell {
-                        p: battery,
-                        q: payload,
-                        ..
-                    } = (*subj).clone()
-                    else {
-                        panic!()
-                    };
-                    let Noun::Cell {
-                        p: sample,
-                        q: context,
-                        ..
-                    } = (*payload).clone()
-                    else {
-                        panic!()
-                    };
-
-                    let hash = cell(battery, context).hash();
+                    let (hash, sample) = subj.hash_gate();
 
                     match ctx.jets.get(&hash) {
                         Some(f) => {
@@ -249,7 +232,6 @@ fn tar_u32(ctx: &InterpreterContext, subj: Rc<Noun>, op: u32, formula: Rc<Noun>)
             hax(b, tar(subj.clone(), c), tar(subj, d))
         }
         11 => {
-            println!("{formula}");
             let Noun::Cell { p: b, q: d, .. } = (*formula).clone() else {
                 panic!()
             };

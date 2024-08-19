@@ -8,10 +8,6 @@ pub fn generate_jets() -> Jets {
     BTreeMap::from([(2989787771712986378u64, ADD)])
 }
 
-// fn add(noun: Noun) -> Noun {
-//     noun
-// }
-
 pub type Jet = fn(Rc<Noun>) -> Rc<Noun>;
 
 static BINARY_ATOM: fn(Rc<Noun>, fn(Atom, Atom) -> Atom) -> Rc<Noun> =
