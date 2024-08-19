@@ -15,32 +15,20 @@ pub fn generate_jets() -> Jets {
 
 pub type Jet = fn(Rc<Noun>) -> Rc<Noun>;
 
-static BINARY_ATOM: fn(Rc<Noun>, fn(Atom, Atom) -> Atom) -> Rc<Noun> =
-    |n: Rc<Noun>, f: fn(Atom, Atom) -> Atom| {
+static BINARY_ATOM: fn(Rc<Noun>, fn(&Atom, &Atom) -> Atom) -> Rc<Noun> =
+    |n: Rc<Noun>, f: fn(&Atom, &Atom) -> Atom| {
         let Noun::Cell { p, q, .. } = (*n).clone() else {
             panic!()
         };
-        let Noun::Atom(p) = (*p).clone() else {
-            panic!()
-        };
-        let Noun::Atom(q) = (*q).clone() else {
-            panic!()
-        };
-        Rc::new(Noun::Atom(f(p, q)))
+        Rc::new(Noun::Atom(f(p.as_atom().unwrap(), q.as_atom().unwrap())))
     };
 
-static BINARY_ATOM_PAIR: fn(Rc<Noun>, fn(Atom, Atom) -> (Atom, Atom)) -> Rc<Noun> =
-    |n: Rc<Noun>, f: fn(Atom, Atom) -> (Atom, Atom)| {
+static BINARY_ATOM_PAIR: fn(Rc<Noun>, fn(&Atom, &Atom) -> (Atom, Atom)) -> Rc<Noun> =
+    |n: Rc<Noun>, f: fn(&Atom, &Atom) -> (Atom, Atom)| {
         let Noun::Cell { p, q, .. } = (*n).clone() else {
             panic!()
         };
-        let Noun::Atom(p) = (*p).clone() else {
-            panic!()
-        };
-        let Noun::Atom(q) = (*q).clone() else {
-            panic!()
-        };
-        let (a, b) = f(p, q);
+        let (a, b) = f(p.as_atom().unwrap(), q.as_atom().unwrap());
         cell(Rc::new(Noun::Atom(a)), Rc::new(Noun::Atom(b)))
     };
 
