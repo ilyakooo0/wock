@@ -3,7 +3,17 @@ use std::rc::Rc;
 
 use num_bigint::BigUint;
 
+use crate::jets::*;
 use crate::noun::*;
+
+struct InterpreterContext {
+    jets: Jets,
+}
+
+fn generate_interpreter_context() -> InterpreterContext {
+    let jets = generate_jets();
+    InterpreterContext { jets }
+}
 
 fn one_big_uint() -> BigUint {
     BigUint::new(vec![1])
@@ -114,7 +124,7 @@ fn hax(addr: Atom, new_value: Rc<Noun>, target: Rc<Noun>) -> Rc<Noun> {
     }
 }
 
-fn tar_u32(subj: Rc<Noun>, op: u32, formula: Rc<Noun>) -> Rc<Noun> {
+fn tar_u32(ctx: &InterpreterContext, subj: Rc<Noun>, op: u32, formula: Rc<Noun>) -> Rc<Noun> {
     match op {
         0 => {
             let Noun::Atom(b) = (*formula).clone() else {
@@ -134,10 +144,33 @@ fn tar_u32(subj: Rc<Noun>, op: u32, formula: Rc<Noun>) -> Rc<Noun> {
                         && q == atom_ref(2)
                         && b == cell(Rc::new(Noun::SIG), atom_ref(1)) =>
                 {
-                    // This means we are about the evaluate a gate at the head of the currehnt subject.
+                    // This means we are about the evaluate a gate at the head of the current subject.
+                    let Noun::Cell {
+                        p: battery,
+                        q: payload,
+                        ..
+                    } = (*subj).clone()
+                    else {
+                        panic!()
+                    };
+                    let Noun::Cell {
+                        p: sample,
+                        q: context,
+                        ..
+                    } = (*payload).clone()
+                    else {
+                        panic!()
+                    };
 
-                    // let gate = fas(axis.clone(), subj.clone());
-                    tar(tar(subj.clone(), b), tar(subj, c))
+                    let hash = cell(battery, context).hash();
+
+                    match ctx.jets.get(&hash) {
+                        Some(f) => {
+                            println!("Evaluating jet {}", hash);
+                            f(sample)
+                        }
+                        None => tar(tar(subj.clone(), b), tar(subj, c)),
+                    }
                 }
                 _ => tar(tar(subj.clone(), b), tar(subj, c)),
             }
@@ -164,12 +197,14 @@ fn tar_u32(subj: Rc<Noun>, op: u32, formula: Rc<Noun>) -> Rc<Noun> {
             tar(
                 subj.clone(),
                 tar_u32(
+                    ctx,
                     cell(c, d),
                     0,
                     tar_u32(
+                        ctx,
                         cell(atom_ref(2), atom_ref(3)),
                         0,
-                        tar_u32(subj, 4, cell(atom_ref(4), b)),
+                        tar_u32(ctx, subj, 4, cell(atom_ref(4), b)),
                     ),
                 ),
             )
@@ -191,6 +226,7 @@ fn tar_u32(subj: Rc<Noun>, op: u32, formula: Rc<Noun>) -> Rc<Noun> {
                 panic!()
             };
             tar_u32(
+                ctx,
                 tar(subj, c),
                 2,
                 cell(
@@ -219,9 +255,12 @@ fn tar_u32(subj: Rc<Noun>, op: u32, formula: Rc<Noun>) -> Rc<Noun> {
             };
             match (*b).clone() {
                 Noun::Atom(_) => tar(subj, d),
-                Noun::Cell { q: c, .. } => {
-                    tar_u32(cell(tar(subj.clone(), c), tar(subj, d)), 0, atom_ref(3))
-                }
+                Noun::Cell { q: c, .. } => tar_u32(
+                    ctx,
+                    cell(tar(subj.clone(), c), tar(subj, d)),
+                    0,
+                    atom_ref(3),
+                ),
             }
         }
         _ => panic!(),
@@ -229,6 +268,8 @@ fn tar_u32(subj: Rc<Noun>, op: u32, formula: Rc<Noun>) -> Rc<Noun> {
 }
 
 pub fn tar(subj: Rc<Noun>, formula: Rc<Noun>) -> Rc<Noun> {
+    let ctx = &generate_interpreter_context();
+
     let Noun::Cell {
         p: op, q: formula, ..
     } = (*formula).clone()
@@ -244,7 +285,7 @@ pub fn tar(subj: Rc<Noun>, formula: Rc<Noun>) -> Rc<Noun> {
                 1 => op_iter.next().expect("invariant"),
                 _ => panic!(),
             };
-            tar_u32(subj, op, formula)
+            tar_u32(ctx, subj, op, formula)
         }
     }
 }

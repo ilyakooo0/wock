@@ -34,19 +34,6 @@ impl Noun {
             Noun::Atom(a) => xxh3_64(&*a.to_bytes_le()),
         }
     }
-
-    pub fn left(self: &Self) -> &Self {
-        match self {
-            Noun::Cell { p, .. } => p,
-            Noun::Atom(_) => panic!(),
-        }
-    }
-    pub fn right(self: &Self) -> &Self {
-        match self {
-            Noun::Cell { q, .. } => q,
-            Noun::Atom(_) => panic!(),
-        }
-    }
 }
 
 impl fmt::Display for Noun {
