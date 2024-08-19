@@ -2,11 +2,11 @@ use std::{rc::Rc, str::FromStr};
 
 use num_bigint::BigUint;
 use std::fmt;
-use xxhash_rust::xxh3::xxh3_64;
+use xxhash_rust::xxh3::xxh3_128;
 
 pub type Atom = BigUint;
 
-pub type Hash = u64;
+pub type Hash = u128;
 
 #[derive(PartialEq, Clone, Debug)]
 pub enum Noun {
@@ -30,7 +30,7 @@ impl Noun {
     pub fn hash(self: &Self) -> Hash {
         match self {
             Noun::Cell { hash, .. } => *hash,
-            Noun::Atom(a) => xxh3_64(&*a.to_bytes_le()),
+            Noun::Atom(a) => xxh3_128(&*a.to_bytes_le()),
         }
     }
 
@@ -104,5 +104,5 @@ pub fn cell(p: Rc<Noun>, q: Rc<Noun>) -> Rc<Noun> {
 }
 
 fn hash_pair(p: Rc<Noun>, q: Rc<Noun>) -> Hash {
-    xxh3_64(&[p.hash().to_le_bytes(), q.hash().to_le_bytes()].as_flattened())
+    xxh3_128(&[p.hash().to_le_bytes(), q.hash().to_le_bytes()].as_flattened())
 }

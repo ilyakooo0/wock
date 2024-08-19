@@ -77,6 +77,7 @@ dependencies = [
  "bitter",
  "console_error_panic_hook",
  "num-bigint",
+ "num-integer",
  "num-traits",
  "wasm-bindgen",
  "wasm-bindgen-test",

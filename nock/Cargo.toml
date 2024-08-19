@@ -21,6 +21,7 @@ console_error_panic_hook = { version = "0.1.7", optional = true }
 num-bigint = "0.4.6"
 num-traits = "0.2.19"
 bitter = "0.7.0"
+num-integer = "0.1.46"
 [dependencies.xxhash-rust]
 version = "0.8.5"
 features = ["xxh3"]
