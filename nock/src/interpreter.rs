@@ -88,7 +88,7 @@ fn fas(ctx: &InterpreterContext, addr: Atom, noun: Rc<Noun>) -> Rc<Noun> {
 
     match addr_iter.len() {
         0 => panic!(),
-        1 => fas_u32(addr_iter.next().expect("invariant"), noun),
+        1 => fas_u32(addr_iter.next().unwrap(), noun),
         _ => {
             let rest = fas(ctx, &addr >> 1, noun);
             fas_u32(
@@ -195,9 +195,6 @@ fn tar_u32(ctx: &InterpreterContext, subj: Rc<Noun>, op: u32, formula: Rc<Noun>)
                 }
                 _ => tar(ctx, tar(ctx, subj.clone(), b), tar(ctx, subj, c)),
             }
-
-            // let formula_hash = formula.hash();
-            // let sample = subj.right().left();
         }
         3 => wut(ctx, tar(ctx, subj, formula)),
         4 => Rc::new(lus(tar(ctx, subj, formula))),

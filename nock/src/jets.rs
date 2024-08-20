@@ -1,6 +1,6 @@
 use core::panic;
 use num_integer::Integer;
-use std::{collections::BTreeMap, rc::Rc};
+use std::{collections::BTreeMap, iter::zip, rc::Rc};
 
 use crate::{
     interpreter::InterpreterContext,
@@ -27,6 +27,7 @@ pub fn generate_jets() -> Jets {
         (189893948398582289331214200623955451738, CAP),
         (156410165781489962142326056842465219913, MAS),
         (319842446776547752542981884135289299212, PEG),
+        (14996897817720580650336412401915082021, FAND),
     ])
 }
 
@@ -148,4 +149,34 @@ static PEG_U32: fn(&Atom, u32) -> Atom = |a, b| match b {
     2 => a << 1,
     3 => (a << 1) + 1u32,
     _ => (b & 1) + (PEG_U32(a, b >> 1) << 1),
+};
+
+static FAND: Jet = |ctx, n| {
+    let (nedl, hstk) = n.as_cell().unwrap();
+    if nedl.is_sig() || hstk.is_sig() {
+        return ctx.nouns.sig.clone();
+    }
+
+    let nedl: Vec<Rc<Noun>> = nedl.list_iter().collect();
+
+    let mut result: Vec<u32> = Vec::new();
+
+    let mut iter = zip(0.., hstk.list_iter());
+
+    let mut inner_iter = iter.clone();
+
+    while let Option::Some((i, _)) = iter.next() {
+        if inner_iter
+            .map(|(_, x)| x)
+            .take(nedl.len())
+            .collect::<Vec<_>>()
+            == nedl
+        {
+            result.push(i);
+        }
+
+        inner_iter = iter.clone();
+    }
+
+    Noun::list(result.iter().map(|a| Noun::from_u32(*a)))
 };

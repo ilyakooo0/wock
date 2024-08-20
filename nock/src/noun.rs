@@ -8,7 +8,7 @@ pub type Atom = BigUint;
 
 pub type Hash = u128;
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub enum Noun {
     Atom(Atom),
     Cell {
@@ -18,13 +18,61 @@ pub enum Noun {
     },
 }
 
+impl PartialEq for Noun {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Noun::Atom(lhs), Noun::Atom(rhs)) => lhs == rhs,
+
+            (
+                Noun::Cell {
+                    p: lhs_p,
+                    q: lhs_q,
+                    hash: lhs_hash,
+                },
+                Noun::Cell {
+                    p: rhs_p,
+                    q: rhs_q,
+                    hash: rhs_hash,
+                },
+            ) => lhs_hash == rhs_hash && lhs_p == rhs_p && lhs_q == rhs_q,
+            _ => false,
+        }
+    }
+}
+
 impl Noun {
     pub const SIG: Noun = Noun::Atom(BigUint::ZERO);
+
+    pub fn from_u32(a: u32) -> Noun {
+        Noun::Atom(Atom::new(vec![a]))
+    }
+
+    pub fn list<I: Iterator<Item = Noun> + DoubleEndedIterator>(l: I) -> Rc<Noun> {
+        l.rfold(Rc::new(Noun::SIG), |tail, head| cell(Rc::new(head), tail))
+    }
+
     pub fn as_atom(self: &Self) -> Option<&Atom> {
         match self {
             Noun::Atom(a) => Option::Some(a),
             _ => Option::None,
         }
+    }
+    pub fn as_cell(self: &Self) -> Option<(Rc<Noun>, Rc<Noun>)> {
+        match self {
+            Noun::Cell { p, q, .. } => Option::Some((p.clone(), q.clone())),
+            _ => Option::None,
+        }
+    }
+
+    pub fn is_sig(self: &Self) -> bool {
+        match self {
+            Noun::Atom(n) if *n == Atom::ZERO => true,
+            _ => false,
+        }
+    }
+
+    pub fn list_iter(self: Rc<Self>) -> NounListIterator {
+        NounListIterator { noun: self.clone() }
     }
 
     pub fn hash(self: &Self) -> Hash {
@@ -54,6 +102,25 @@ impl Noun {
         };
 
         (hash_pair((*battery).clone(), context), sample)
+    }
+}
+
+#[derive(Clone)]
+pub struct NounListIterator {
+    noun: Rc<Noun>,
+}
+
+impl Iterator for NounListIterator {
+    type Item = Rc<Noun>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.noun.is_sig() {
+            Option::None
+        } else {
+            let (p, q) = self.noun.as_cell().unwrap();
+            self.noun = q.clone();
+            Option::Some(p)
+        }
     }
 }
 
