@@ -23,6 +23,7 @@ pub fn generate_jets() -> Jets {
         (74509797090527672995505213760834630343, MOD),
         (254997877510438802608262569354903382802, MUL),
         (44659582293430635022123827294854022894, SUB),
+        (189893948398582289331214200623955451738, CAP),
     ])
 }
 
@@ -71,3 +72,24 @@ static MIN: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| if a < b { a.clone() } else { 
 static MOD: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a % b);
 static MUL: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a * b);
 static SUB: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a - b);
+static CAP: Jet = |ctx, n| {
+    let Noun::Atom(n) = (*n).clone() else {
+        panic!()
+    };
+    CAP_ATOM(ctx, n)
+};
+static CAP_ATOM: fn(&InterpreterContext, Atom) -> Rc<Noun> = |ctx, n: Atom| {
+    let mut n_iter = n.iter_u32_digits();
+
+    match n_iter.len() {
+        0 => panic!(),
+        1 => CAP_U32(ctx, n_iter.next().unwrap()),
+        _ => CAP_ATOM(ctx, n >> 1),
+    }
+};
+static CAP_U32: fn(ctx: &InterpreterContext, u32) -> Rc<Noun> = |ctx, n| match n {
+    0 | 1 => panic!(),
+    2 => ctx.nouns.two.clone(),
+    3 => ctx.nouns.three.clone(),
+    n => CAP_U32(ctx, n >> 1),
+};
