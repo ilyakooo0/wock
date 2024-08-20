@@ -1,4 +1,7 @@
-use nock::{interpreter::eval_gate, serialization::cue_bytes};
+use nock::{
+    interpreter::{eval_gate, generate_interpreter_context},
+    serialization::cue_bytes,
+};
 use std::io::{self, Read};
 
 fn main() {
@@ -10,7 +13,7 @@ fn main() {
 
     let gate = cue_bytes(&jammed_input);
 
-    let result = eval_gate(gate);
+    let result = eval_gate(&generate_interpreter_context(), gate);
 
     println!("{result}");
 }
