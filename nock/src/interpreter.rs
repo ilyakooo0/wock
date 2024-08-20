@@ -16,7 +16,7 @@ pub struct Nouns {
     pub two_three: Rc<Noun>,
 }
 
-struct BigUints {
+pub struct BigUints {
     pub zero: BigUint,
     pub one: BigUint,
     pub two: BigUint,
