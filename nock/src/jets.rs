@@ -1,7 +1,10 @@
 use num_integer::Integer;
 use std::{collections::BTreeMap, rc::Rc};
 
-use crate::noun::{self, cell, Atom, Noun};
+use crate::{
+    interpreter::InterpreterContext,
+    noun::{self, cell, Atom, Noun},
+};
 
 pub type Jets = BTreeMap<noun::Hash, Jet>;
 
@@ -23,7 +26,7 @@ pub fn generate_jets() -> Jets {
     ])
 }
 
-pub type Jet = fn(Rc<Noun>) -> Rc<Noun>;
+pub type Jet = fn(ctx: &InterpreterContext, Rc<Noun>) -> Rc<Noun>;
 
 static BINARY_ATOM: fn(Rc<Noun>, fn(&Atom, &Atom) -> Atom) -> Rc<Noun> =
     |n: Rc<Noun>, f: fn(&Atom, &Atom) -> Atom| {
@@ -31,6 +34,19 @@ static BINARY_ATOM: fn(Rc<Noun>, fn(&Atom, &Atom) -> Atom) -> Rc<Noun> =
             panic!()
         };
         Rc::new(Noun::Atom(f(p.as_atom().unwrap(), q.as_atom().unwrap())))
+    };
+
+static BINARY_ATOM_LOOB: fn(&InterpreterContext, Rc<Noun>, fn(&Atom, &Atom) -> bool) -> Rc<Noun> =
+    |ctx: &InterpreterContext, n: Rc<Noun>, f: fn(&Atom, &Atom) -> bool| {
+        let Noun::Cell { p, q, .. } = (*n).clone() else {
+            panic!()
+        };
+
+        if f(p.as_atom().unwrap(), q.as_atom().unwrap()) {
+            ctx.nouns.sig.clone()
+        } else {
+            ctx.nouns.one.clone()
+        }
     };
 
 static BINARY_ATOM_PAIR: fn(Rc<Noun>, fn(&Atom, &Atom) -> (Atom, Atom)) -> Rc<Noun> =
@@ -42,18 +58,16 @@ static BINARY_ATOM_PAIR: fn(Rc<Noun>, fn(&Atom, &Atom) -> (Atom, Atom)) -> Rc<No
         cell(Rc::new(Noun::Atom(a)), Rc::new(Noun::Atom(b)))
     };
 
-static LOOB: fn(bool) -> Atom = |b| if b { Atom::ZERO } else { Atom::new(vec![1]) };
-
-static ADD: Jet = |n| BINARY_ATOM(n, |a, b| a + b);
-static DEC: Jet = |n| Rc::new(Noun::Atom(n.as_atom().unwrap() - 1u32));
-static DVR: Jet = |n| BINARY_ATOM_PAIR(n, |a, b| a.div_rem(&b));
-static DIV: Jet = |n| BINARY_ATOM(n, |a, b| a / b);
-static GTE: Jet = |n| BINARY_ATOM(n, |a, b| LOOB(a >= b));
-static GTH: Jet = |n| BINARY_ATOM(n, |a, b| LOOB(a > b));
-static LTE: Jet = |n| BINARY_ATOM(n, |a, b| LOOB(a <= b));
-static LTH: Jet = |n| BINARY_ATOM(n, |a, b| LOOB(a < b));
-static MAX: Jet = |n| BINARY_ATOM(n, |a, b| if a > b { a.clone() } else { b.clone() });
-static MIN: Jet = |n| BINARY_ATOM(n, |a, b| if a < b { a.clone() } else { b.clone() });
-static MOD: Jet = |n| BINARY_ATOM(n, |a, b| a % b);
-static MUL: Jet = |n| BINARY_ATOM(n, |a, b| a * b);
-static SUB: Jet = |n| BINARY_ATOM(n, |a, b| a - b);
+static ADD: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a + b);
+static DEC: Jet = |_ctx, n| Rc::new(Noun::Atom(n.as_atom().unwrap() - 1u32));
+static DVR: Jet = |_ctx, n| BINARY_ATOM_PAIR(n, |a, b| a.div_rem(&b));
+static DIV: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a / b);
+static GTE: Jet = |ctx, n| BINARY_ATOM_LOOB(ctx, n, |a, b| a >= b);
+static GTH: Jet = |ctx, n| BINARY_ATOM_LOOB(ctx, n, |a, b| a > b);
+static LTE: Jet = |ctx, n| BINARY_ATOM_LOOB(ctx, n, |a, b| a <= b);
+static LTH: Jet = |ctx, n| BINARY_ATOM_LOOB(ctx, n, |a, b| a < b);
+static MAX: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| if a > b { a.clone() } else { b.clone() });
+static MIN: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| if a < b { a.clone() } else { b.clone() });
+static MOD: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a % b);
+static MUL: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a * b);
+static SUB: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a - b);

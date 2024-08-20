@@ -7,27 +7,27 @@ use crate::jets::*;
 use crate::noun::*;
 
 pub struct Nouns {
-    sig: Rc<Noun>,
-    one: Rc<Noun>,
-    two: Rc<Noun>,
-    three: Rc<Noun>,
-    four: Rc<Noun>,
-    sig_one: Rc<Noun>,
-    two_three: Rc<Noun>,
+    pub sig: Rc<Noun>,
+    pub one: Rc<Noun>,
+    pub two: Rc<Noun>,
+    pub three: Rc<Noun>,
+    pub four: Rc<Noun>,
+    pub sig_one: Rc<Noun>,
+    pub two_three: Rc<Noun>,
 }
 
 struct BigUints {
-    zero: BigUint,
-    one: BigUint,
-    two: BigUint,
-    three: BigUint,
-    four: BigUint,
+    pub zero: BigUint,
+    pub one: BigUint,
+    pub two: BigUint,
+    pub three: BigUint,
+    pub four: BigUint,
 }
 
 pub struct InterpreterContext {
-    jets: Jets,
-    nouns: Nouns,
-    big_uints: BigUints,
+    pub jets: Jets,
+    pub nouns: Nouns,
+    pub big_uints: BigUints,
 }
 
 pub fn generate_interpreter_context() -> InterpreterContext {
@@ -188,7 +188,7 @@ fn tar_u32(ctx: &InterpreterContext, subj: Rc<Noun>, op: u32, formula: Rc<Noun>)
                     match ctx.jets.get(&hash) {
                         Some(f) => {
                             println!("Evaluating jet {}", hash);
-                            f(sample)
+                            f(ctx, sample)
                         }
                         None => tar(ctx, tar(ctx, subj.clone(), b), tar(ctx, subj, c)),
                     }
