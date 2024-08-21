@@ -28,6 +28,7 @@ pub fn generate_jets() -> Jets {
         (156410165781489962142326056842465219913, MAS),
         (319842446776547752542981884135289299212, PEG),
         (14996897817720580650336412401915082021, FAND),
+        (233946487723094976680797572797152464005, FIND),
     ])
 }
 
@@ -179,4 +180,32 @@ static FAND: Jet = |ctx, n| {
     }
 
     Noun::list(result.iter().map(|a| Noun::from_u32(*a)))
+};
+
+static FIND: Jet = |ctx, n| {
+    let (nedl, hstk) = n.as_cell().unwrap();
+    if nedl.is_sig() || hstk.is_sig() {
+        return ctx.nouns.sig.clone();
+    }
+
+    let nedl: Vec<Rc<Noun>> = nedl.list_iter().collect();
+
+    let mut iter = zip(0.., hstk.list_iter());
+
+    let mut inner_iter = iter.clone();
+
+    while let Option::Some((i, _)) = iter.next() {
+        if inner_iter
+            .map(|(_, x)| x)
+            .take(nedl.len())
+            .collect::<Vec<_>>()
+            == nedl
+        {
+            return Rc::new(Noun::from_u32(i)).unit();
+        }
+
+        inner_iter = iter.clone();
+    }
+
+    return ctx.nouns.sig.clone();
 };

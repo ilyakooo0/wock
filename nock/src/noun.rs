@@ -51,6 +51,10 @@ impl Noun {
         l.rfold(Rc::new(Noun::SIG), |tail, head| cell(Rc::new(head), tail))
     }
 
+    pub fn unit(self: Rc<Self>) -> Rc<Noun> {
+        cell(Rc::new(Noun::SIG), self)
+    }
+
     pub fn as_atom(self: &Self) -> Option<&Atom> {
         match self {
             Noun::Atom(a) => Option::Some(a),

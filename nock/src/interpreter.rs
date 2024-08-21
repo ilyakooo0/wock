@@ -7,6 +7,8 @@ use crate::jets::*;
 use crate::noun::*;
 
 pub struct Nouns {
+    pub y: Rc<Noun>,
+    pub n: Rc<Noun>,
     pub sig: Rc<Noun>,
     pub one: Rc<Noun>,
     pub two: Rc<Noun>,
@@ -49,6 +51,8 @@ pub fn generate_interpreter_context() -> InterpreterContext {
     InterpreterContext {
         jets,
         nouns: Nouns {
+            n: one.clone(),
+            y: sig.clone(),
             sig,
             one,
             two,
