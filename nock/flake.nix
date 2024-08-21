@@ -12,16 +12,16 @@
       in {
         inherit fenix;
         devShells.default = pkgs.mkShell {
-          # CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_LINKER =
-          #   "lld"; # LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-          buildInputs = with pkgs;
-            with fenix.packages.${system}.latest; [
-              wasm-pack
-              rustc
-              wasm-tools
-              cargo
-              llvmPackages.bintools
-            ];
+          buildInputs = with pkgs; [
+            (fenix.packages.${system}.combine
+              (with fenix.packages.${system}.latest; [
+                fenix.packages.${system}.targets.wasm32-unknown-unknown.latest.rust-std
+                cargo
+                rustc
+              ]))
+            wasm-pack
+            wasm-tools
+          ];
         };
       });
 }
