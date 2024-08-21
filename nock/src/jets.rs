@@ -30,6 +30,7 @@ pub fn generate_jets() -> Jets {
         (14996897817720580650336412401915082021, FAND),
         (233946487723094976680797572797152464005, FIND),
         (215071416104742929357520800152622002342, FLOP),
+        (127000845647123308421702512578230020206, GULF),
     ])
 }
 
@@ -214,4 +215,24 @@ static FIND: Jet = |ctx, n| {
 static FLOP: Jet = |ctx, n| {
     n.list_iter()
         .fold(ctx.nouns.sig.clone(), |tail, head| cell(head, tail))
+};
+
+static GULF: Jet = |_ctx, n| {
+    let (from, to) = n.as_cell().unwrap();
+
+    let mut from = (*from.as_atom().unwrap()).clone();
+    let to = to.as_atom().unwrap().clone();
+
+    if from > to {
+        panic!()
+    }
+
+    let mut tmp = Vec::new();
+
+    while from <= to {
+        tmp.push(from.clone());
+        from += 1u32;
+    }
+
+    Noun::list(tmp.iter().rev().map(|a| Noun::Atom(a.clone())))
 };
