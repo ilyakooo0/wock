@@ -51,6 +51,10 @@ impl Noun {
         l.rfold(Rc::new(Noun::SIG), |tail, head| cell(Rc::new(head), tail))
     }
 
+    pub fn list_refs<I: Iterator<Item = Rc<Noun>> + DoubleEndedIterator>(l: I) -> Rc<Noun> {
+        l.rfold(Rc::new(Noun::SIG), |tail, head| cell(head, tail))
+    }
+
     pub fn unit(self: Rc<Self>) -> Rc<Noun> {
         cell(Rc::new(Noun::SIG), self)
     }

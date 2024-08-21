@@ -29,6 +29,7 @@ pub fn generate_jets() -> Jets {
         (319842446776547752542981884135289299212, PEG),
         (14996897817720580650336412401915082021, FAND),
         (233946487723094976680797572797152464005, FIND),
+        (215071416104742929357520800152622002342, FLOP),
     ])
 }
 
@@ -208,4 +209,9 @@ static FIND: Jet = |ctx, n| {
     }
 
     return ctx.nouns.sig.clone();
+};
+
+static FLOP: Jet = |ctx, n| {
+    n.list_iter()
+        .fold(ctx.nouns.sig.clone(), |tail, head| cell(head, tail))
 };
