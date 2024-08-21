@@ -36,6 +36,7 @@ pub fn generate_jets() -> Jets {
         (215071416104742929357520800152622002342, FLOP),
         (127000845647123308421702512578230020206, GULF),
         (224124632134128248273067864092142254001, INTO),
+        (22365719601138689598430859488399820563, JOIN),
     ])
 }
 
@@ -271,4 +272,15 @@ static INTO: Jet = |_ctx, n| {
                 .map(|x| x.clone()),
         ),
     }
+};
+
+static JOIN: Jet = |_ctx, n| {
+    let (sep, list) = n.as_cell().unwrap();
+    Noun::list_refs(
+        list.list_iter()
+            .intersperse(sep)
+            .collect::<Vec<_>>()
+            .iter()
+            .map(|x| x.clone()),
+    )
 };

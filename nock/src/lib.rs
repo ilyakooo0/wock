@@ -1,3 +1,4 @@
+#![feature(iter_intersperse)]
 pub mod interpreter;
 mod jets;
 pub mod noun;
