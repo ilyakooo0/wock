@@ -1,6 +1,10 @@
 use core::panic;
 use num_integer::Integer;
-use std::{collections::BTreeMap, iter::zip, rc::Rc};
+use std::{
+    collections::BTreeMap,
+    iter::{once, zip},
+    rc::Rc,
+};
 
 use crate::{
     interpreter::InterpreterContext,
@@ -31,6 +35,7 @@ pub fn generate_jets() -> Jets {
         (233946487723094976680797572797152464005, FIND),
         (215071416104742929357520800152622002342, FLOP),
         (127000845647123308421702512578230020206, GULF),
+        (224124632134128248273067864092142254001, INTO),
     ])
 }
 
@@ -235,4 +240,35 @@ static GULF: Jet = |_ctx, n| {
     }
 
     Noun::list(tmp.iter().rev().map(|a| Noun::Atom(a.clone())))
+};
+
+static INTO: Jet = |_ctx, n| {
+    let (a, b) = n.as_cell().unwrap();
+    let (b, c) = b.as_cell().unwrap();
+
+    let mut b_iter = b.as_atom().unwrap().iter_u32_digits();
+
+    match b_iter.len() {
+        0 => cell(c, a),
+        1 => {
+            let l = a.list_iter();
+            let b = b_iter.next().unwrap() as usize;
+            Noun::list_refs(
+                l.clone()
+                    .take(b)
+                    .chain(once(c))
+                    .chain(l.skip(b))
+                    .collect::<Vec<_>>()
+                    .iter()
+                    .map(|x| x.clone()),
+            )
+        }
+        _ => Noun::list_refs(
+            a.list_iter()
+                .chain(once(c))
+                .collect::<Vec<_>>()
+                .iter()
+                .map(|x| x.clone()),
+        ),
+    }
 };
