@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{
-    interpreter::InterpreterContext,
+    interpreter::{call_gate, InterpreterContext},
     noun::{self, cell, Atom, Noun},
 };
 
@@ -38,6 +38,7 @@ pub fn generate_jets() -> Jets {
         (224124632134128248273067864092142254001, INTO),
         (22365719601138689598430859488399820563, JOIN),
         (211253539934007667533839299235896640130, LENT),
+        (104838119266193725126177792605193739824, LEVY),
     ])
 }
 
@@ -287,3 +288,14 @@ static JOIN: Jet = |_ctx, n| {
 };
 
 static LENT: Jet = |_ctx, n| Rc::new(Noun::from_u32(n.list_iter().fold(0u32, |l, _| l + 1)));
+
+static LEVY: Jet = |ctx, n| {
+    let (a, b) = n.as_cell().unwrap();
+    if a.list_iter()
+        .all(|n| call_gate(ctx, b.clone(), n) == ctx.nouns.y)
+    {
+        ctx.nouns.y.clone()
+    } else {
+        ctx.nouns.n.clone()
+    }
+};
