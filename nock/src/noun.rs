@@ -83,6 +83,15 @@ impl Noun {
         NounListIterator { noun: self.clone() }
     }
 
+    /// panics if malformed
+    pub fn as_unit(self: &Self) -> Option<Rc<Self>> {
+        if self.is_sig() {
+            Option::None
+        } else {
+            Option::Some(self.as_cell().unwrap().1)
+        }
+    }
+
     pub fn hash(self: &Self) -> Hash {
         match self {
             Noun::Cell { hash, .. } => *hash,

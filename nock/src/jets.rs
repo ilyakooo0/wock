@@ -40,6 +40,7 @@ pub fn generate_jets() -> Jets {
         (211253539934007667533839299235896640130, LENT),
         (104838119266193725126177792605193739824, LEVY),
         (136665047491594821996133547576675424469, LIEN),
+        (134383540064775397895881415210519251023, MURN),
     ])
 }
 
@@ -310,4 +311,16 @@ static LIEN: Jet = |ctx, n| {
     } else {
         ctx.nouns.n.clone()
     }
+};
+
+static MURN: Jet = |ctx, n| {
+    let (a, b) = n.as_cell().unwrap();
+
+    Noun::list_refs(
+        a.list_iter()
+            .filter_map(|n| call_gate(ctx, b.clone(), n).as_unit())
+            .collect::<Vec<_>>()
+            .iter()
+            .map(|x| x.clone()),
+    )
 };
