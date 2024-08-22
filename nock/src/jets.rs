@@ -39,6 +39,7 @@ pub fn generate_jets() -> Jets {
         (22365719601138689598430859488399820563, JOIN),
         (211253539934007667533839299235896640130, LENT),
         (104838119266193725126177792605193739824, LEVY),
+        (136665047491594821996133547576675424469, LIEN),
     ])
 }
 
@@ -293,6 +294,17 @@ static LEVY: Jet = |ctx, n| {
     let (a, b) = n.as_cell().unwrap();
     if a.list_iter()
         .all(|n| call_gate(ctx, b.clone(), n) == ctx.nouns.y)
+    {
+        ctx.nouns.y.clone()
+    } else {
+        ctx.nouns.n.clone()
+    }
+};
+
+static LIEN: Jet = |ctx, n| {
+    let (a, b) = n.as_cell().unwrap();
+    if a.list_iter()
+        .any(|n| call_gate(ctx, b.clone(), n) == ctx.nouns.y)
     {
         ctx.nouns.y.clone()
     } else {
