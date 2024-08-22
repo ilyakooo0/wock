@@ -65,6 +65,17 @@ impl Noun {
             _ => Option::None,
         }
     }
+
+    pub fn as_u32(self: &Self) -> Option<u32> {
+        let mut iter = self.as_atom()?.iter_u32_digits();
+
+        match iter.len() {
+            0 => Some(0),
+            1 => Some(iter.next().unwrap()),
+            _ => Option::None,
+        }
+    }
+
     pub fn as_cell(self: &Self) -> Option<(Rc<Noun>, Rc<Noun>)> {
         match self {
             Noun::Cell { p, q, .. } => Option::Some((p.clone(), q.clone())),

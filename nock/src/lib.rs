@@ -1,4 +1,5 @@
 #![feature(iter_intersperse)]
+#![feature(iter_repeat_n)]
 pub mod interpreter;
 mod jets;
 pub mod noun;

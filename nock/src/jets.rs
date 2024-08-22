@@ -2,7 +2,7 @@ use core::panic;
 use num_integer::Integer;
 use std::{
     collections::BTreeMap,
-    iter::{once, zip},
+    iter::{once, repeat_n, zip},
     rc::Rc,
 };
 
@@ -41,6 +41,7 @@ pub fn generate_jets() -> Jets {
         (104838119266193725126177792605193739824, LEVY),
         (136665047491594821996133547576675424469, LIEN),
         (134383540064775397895881415210519251023, MURN),
+        (206209714924463645290290379601675245373, REAP),
     ])
 }
 
@@ -323,4 +324,10 @@ static MURN: Jet = |ctx, n| {
             .iter()
             .map(|x| x.clone()),
     )
+};
+
+static REAP: Jet = |_ctx, n| {
+    let (a, b) = n.as_cell().unwrap();
+
+    Noun::list_refs(repeat_n(b, a.as_u32().unwrap() as usize))
 };
