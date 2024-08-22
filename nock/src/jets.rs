@@ -42,6 +42,7 @@ pub fn generate_jets() -> Jets {
         (136665047491594821996133547576675424469, LIEN),
         (134383540064775397895881415210519251023, MURN),
         (206209714924463645290290379601675245373, REAP),
+        (266278769253331237088430651317345081031, REAR),
     ])
 }
 
@@ -331,3 +332,5 @@ static REAP: Jet = |_ctx, n| {
 
     Noun::list_refs(repeat_n(b, a.as_u32().unwrap() as usize))
 };
+
+static REAR: Jet = |_ctx, n| n.list_iter().last().unwrap();
