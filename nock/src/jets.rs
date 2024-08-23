@@ -48,6 +48,7 @@ pub fn generate_jets() -> Jets {
         (89970054366691388746503743197917964564, SCAG),
         (68845187332605602565057027619381114427, SKID),
         (51010231444191054729255601633316498529, SKIM),
+        (144878877047435484372311285666595397017, SKIP),
     ])
 }
 
@@ -389,6 +390,18 @@ static SKIM: Jet = |ctx, n| {
     Noun::list_refs(
         list.list_iter()
             .filter(|n| slam(ctx, gate.clone(), n.clone()).is_y())
+            .collect::<Vec<_>>()
+            .iter()
+            .cloned(),
+    )
+};
+
+static SKIP: Jet = |ctx, n| {
+    let (list, gate) = n.as_cell().unwrap();
+
+    Noun::list_refs(
+        list.list_iter()
+            .filter(|n| slam(ctx, gate.clone(), n.clone()).is_n())
             .collect::<Vec<_>>()
             .iter()
             .cloned(),
