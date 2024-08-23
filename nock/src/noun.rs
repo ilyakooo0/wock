@@ -96,6 +96,14 @@ impl Noun {
         }
     }
 
+    pub fn is_y(self: &Self) -> bool {
+        self.is_sig()
+    }
+
+    pub fn is_n(self: &Self) -> bool {
+        !self.is_sig()
+    }
+
     pub fn list_iter(self: Rc<Self>) -> NounListIterator {
         NounListIterator { noun: self.clone() }
     }

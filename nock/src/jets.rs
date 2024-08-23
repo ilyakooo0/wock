@@ -46,6 +46,7 @@ pub fn generate_jets() -> Jets {
         (146282575960509029931248602154898675358, REEL),
         (218516926094890651045754335042357820192, ROLL),
         (89970054366691388746503743197917964564, SCAG),
+        (68845187332605602565057027619381114427, SKID),
     ])
 }
 
@@ -365,5 +366,18 @@ static SCAG: Jet = |_ctx, n| {
             .collect::<Vec<_>>()
             .iter()
             .map(|x| x.clone()),
+    )
+};
+
+static SKID: Jet = |ctx, n| {
+    let (list, gate) = n.as_cell().unwrap();
+
+    let (ys, ns): (Vec<Rc<Noun>>, _) = list
+        .list_iter()
+        .partition(|n| slam(ctx, gate.clone(), n.clone()).is_y());
+
+    cell(
+        Noun::list_refs(ys.iter().cloned()),
+        Noun::list_refs(ns.iter().cloned()),
     )
 };
