@@ -49,6 +49,7 @@ pub fn generate_jets() -> Jets {
         (68845187332605602565057027619381114427, SKID),
         (51010231444191054729255601633316498529, SKIM),
         (144878877047435484372311285666595397017, SKIP),
+        (22344664364706022641079203486385841813, SLAG),
     ])
 }
 
@@ -406,4 +407,22 @@ static SKIP: Jet = |ctx, n| {
             .iter()
             .cloned(),
     )
+};
+
+static SLAG: Jet = |ctx, n| {
+    let (a, list) = n.as_cell().unwrap();
+
+    let mut a_iter = a.as_atom().unwrap().iter_u32_digits();
+
+    match a_iter.len() {
+        0 => list,
+        1 => Noun::list_refs(
+            list.list_iter()
+                .skip(a_iter.next().unwrap() as usize)
+                .collect::<Vec<_>>()
+                .iter()
+                .cloned(),
+        ),
+        _ => ctx.nouns.sig.clone(),
+    }
 };
