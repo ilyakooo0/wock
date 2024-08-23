@@ -50,6 +50,7 @@ pub fn generate_jets() -> Jets {
         (51010231444191054729255601633316498529, SKIM),
         (144878877047435484372311285666595397017, SKIP),
         (22344664364706022641079203486385841813, SLAG),
+        (288515703007942177334798811660651439897, SNAG),
     ])
 }
 
@@ -425,4 +426,10 @@ static SLAG: Jet = |ctx, n| {
         ),
         _ => ctx.nouns.sig.clone(),
     }
+};
+
+static SNAG: Jet = |_ctx, n| {
+    let (a, list) = n.as_cell().unwrap();
+
+    list.list_iter().nth(a.as_u32().unwrap() as usize).unwrap()
 };
