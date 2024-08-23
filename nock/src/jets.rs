@@ -45,6 +45,7 @@ pub fn generate_jets() -> Jets {
         (266278769253331237088430651317345081031, REAR),
         (146282575960509029931248602154898675358, REEL),
         (218516926094890651045754335042357820192, ROLL),
+        (89970054366691388746503743197917964564, SCAG),
     ])
 }
 
@@ -352,5 +353,17 @@ static ROLL: Jet = |ctx, n| {
     list.list_iter().fold(
         gate.clone().gate_sample().unwrap().as_cell().unwrap().1,
         |acc, next| slam(ctx, gate.clone(), cell(next.clone(), acc)),
+    )
+};
+
+static SCAG: Jet = |_ctx, n| {
+    let (a, b) = n.as_cell().unwrap();
+
+    Noun::list_refs(
+        b.list_iter()
+            .take(a.as_u32().unwrap() as usize)
+            .collect::<Vec<_>>()
+            .iter()
+            .map(|x| x.clone()),
     )
 };
