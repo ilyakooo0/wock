@@ -76,6 +76,12 @@ impl Noun {
         }
     }
 
+    pub fn gate_sample(self: Rc<Self>) -> Option<Rc<Self>> {
+        let (_battery, payload) = self.as_cell()?;
+        let (sample, _context) = payload.as_cell()?;
+        Option::Some(sample)
+    }
+
     pub fn as_cell(self: &Self) -> Option<(Rc<Noun>, Rc<Noun>)> {
         match self {
             Noun::Cell { p, q, .. } => Option::Some((p.clone(), q.clone())),

@@ -321,7 +321,7 @@ pub fn eval_gate(ctx: &InterpreterContext, gate: Rc<Noun>) -> Rc<Noun> {
     )
 }
 
-pub fn call_gate(ctx: &InterpreterContext, gate: Rc<Noun>, sample: Rc<Noun>) -> Rc<Noun> {
+pub fn slam(ctx: &InterpreterContext, gate: Rc<Noun>, sample: Rc<Noun>) -> Rc<Noun> {
     let (battery, payload) = gate.as_cell().unwrap();
     let (_sample, context) = payload.as_cell().unwrap();
 

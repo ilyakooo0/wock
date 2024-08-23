@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{
-    interpreter::{call_gate, InterpreterContext},
+    interpreter::{slam, InterpreterContext},
     noun::{self, cell, Atom, Noun},
 };
 
@@ -43,6 +43,7 @@ pub fn generate_jets() -> Jets {
         (134383540064775397895881415210519251023, MURN),
         (206209714924463645290290379601675245373, REAP),
         (266278769253331237088430651317345081031, REAR),
+        (146282575960509029931248602154898675358, REEL),
     ])
 }
 
@@ -296,7 +297,7 @@ static LENT: Jet = |_ctx, n| Rc::new(Noun::from_u32(n.list_iter().fold(0u32, |l,
 static LEVY: Jet = |ctx, n| {
     let (a, b) = n.as_cell().unwrap();
     if a.list_iter()
-        .all(|n| call_gate(ctx, b.clone(), n) == ctx.nouns.y)
+        .all(|n| slam(ctx, b.clone(), n) == ctx.nouns.y)
     {
         ctx.nouns.y.clone()
     } else {
@@ -307,7 +308,7 @@ static LEVY: Jet = |ctx, n| {
 static LIEN: Jet = |ctx, n| {
     let (a, b) = n.as_cell().unwrap();
     if a.list_iter()
-        .any(|n| call_gate(ctx, b.clone(), n) == ctx.nouns.y)
+        .any(|n| slam(ctx, b.clone(), n) == ctx.nouns.y)
     {
         ctx.nouns.y.clone()
     } else {
@@ -320,7 +321,7 @@ static MURN: Jet = |ctx, n| {
 
     Noun::list_refs(
         a.list_iter()
-            .filter_map(|n| call_gate(ctx, b.clone(), n).as_unit())
+            .filter_map(|n| slam(ctx, b.clone(), n).as_unit())
             .collect::<Vec<_>>()
             .iter()
             .map(|x| x.clone()),
@@ -334,3 +335,12 @@ static REAP: Jet = |_ctx, n| {
 };
 
 static REAR: Jet = |_ctx, n| n.list_iter().last().unwrap();
+
+static REEL: Jet = |ctx, n| {
+    let (list, gate) = n.as_cell().unwrap();
+
+    list.list_iter().collect::<Vec<_>>().iter().rfold(
+        gate.clone().gate_sample().unwrap().as_cell().unwrap().1,
+        |acc, next| slam(ctx, gate.clone(), cell(next.clone(), acc)),
+    )
+};
