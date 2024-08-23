@@ -51,6 +51,7 @@ pub fn generate_jets() -> Jets {
         (144878877047435484372311285666595397017, SKIP),
         (22344664364706022641079203486385841813, SLAG),
         (288515703007942177334798811660651439897, SNAG),
+        (322006565952434408151902864454572452802, SNIP),
     ])
 }
 
@@ -432,4 +433,16 @@ static SNAG: Jet = |_ctx, n| {
     let (a, list) = n.as_cell().unwrap();
 
     list.list_iter().nth(a.as_u32().unwrap() as usize).unwrap()
+};
+
+static SNIP: Jet = |_ctx, n| {
+    Noun::list_refs(
+        n.list_iter()
+            .collect::<Vec<_>>()
+            .iter()
+            .rev()
+            .skip(1)
+            .rev()
+            .cloned(),
+    )
 };
