@@ -57,6 +57,7 @@ pub fn generate_jets() -> Jets {
         (255402796382159268271460433298209603428, SORT),
         (10111398404342329752608067595798409804, SPIN),
         (209194119090564757355985847956576215234, SPUN),
+        (103985097318911737222583881947453560061, TURN),
     ])
 }
 
@@ -510,4 +511,15 @@ static SPUN: Jet = |ctx, n| {
     }
 
     cell(Noun::list_refs(res.iter().cloned()), acc)
+};
+
+static TURN: Jet = |ctx, n| {
+    let (list, gate) = n.as_cell().unwrap();
+    Noun::list_refs(
+        list.list_iter()
+            .map(|x| slam(ctx, gate.clone(), x))
+            .collect::<Vec<_>>()
+            .iter()
+            .cloned(),
+    )
 };
