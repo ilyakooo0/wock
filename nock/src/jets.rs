@@ -55,6 +55,7 @@ pub fn generate_jets() -> Jets {
         (322006565952434408151902864454572452802, SNIP),
         (290837622185731774795798043954046795930, SNOC),
         (255402796382159268271460433298209603428, SORT),
+        (10111398404342329752608067595798409804, SPIN),
     ])
 }
 
@@ -478,4 +479,19 @@ static SORT: Jet = |ctx, n| {
     });
 
     Noun::list_refs(v.iter().cloned())
+};
+
+static SPIN: Jet = |ctx, n| {
+    let (list, b) = n.as_cell().unwrap();
+    let (mut acc, gate) = b.as_cell().unwrap();
+
+    let mut res = Vec::new();
+
+    for n in list.list_iter() {
+        let (el, new_acc) = slam(ctx, gate.clone(), cell(n, acc)).as_cell().unwrap();
+        acc = new_acc;
+        res.push(el);
+    }
+
+    cell(Noun::list_refs(res.iter().cloned()), acc)
 };
