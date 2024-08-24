@@ -61,6 +61,7 @@ pub fn generate_jets() -> Jets {
         (216618478373489138062093083914898130454, WELD),
         (161636738411171172446435323238280743696, WELP),
         (90634096513747887582230817128332929026, ZING),
+        (59352245691598674621226842217946522940, BEX),
     ])
 }
 
@@ -551,3 +552,5 @@ static ZING: Jet = |_ctx, n| {
             .cloned(),
     )
 };
+
+static BEX: Jet = |ctx, n| Rc::new(Noun::Atom(ctx.big_uints.one.clone() << n.as_u32().unwrap()));
