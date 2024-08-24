@@ -1,6 +1,7 @@
 use core::panic;
 use num_integer::Integer;
 use std::{
+    cmp::Ordering,
     collections::BTreeMap,
     iter::{once, repeat_n, zip},
     rc::Rc,
@@ -53,6 +54,7 @@ pub fn generate_jets() -> Jets {
         (288515703007942177334798811660651439897, SNAG),
         (322006565952434408151902864454572452802, SNIP),
         (290837622185731774795798043954046795930, SNOC),
+        (255402796382159268271460433298209603428, SORT),
     ])
 }
 
@@ -458,4 +460,22 @@ static SNOC: Jet = |_ctx, n| {
             .iter()
             .cloned(),
     )
+};
+
+static SORT: Jet = |ctx, n| {
+    let (list, lth) = n.as_cell().unwrap();
+
+    let mut v: Vec<_> = list.list_iter().collect();
+
+    v.sort_by(|a, b| {
+        if slam(ctx, lth.clone(), cell(a.clone(), b.clone())).is_y() {
+            Ordering::Less
+        } else if slam(ctx, lth.clone(), cell(b.clone(), a.clone())).is_y() {
+            Ordering::Greater
+        } else {
+            Ordering::Equal
+        }
+    });
+
+    Noun::list_refs(v.iter().cloned())
 };
