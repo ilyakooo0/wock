@@ -60,6 +60,7 @@ pub fn generate_jets() -> Jets {
         (103985097318911737222583881947453560061, TURN),
         (216618478373489138062093083914898130454, WELD),
         (161636738411171172446435323238280743696, WELP),
+        (90634096513747887582230817128332929026, ZING),
     ])
 }
 
@@ -539,3 +540,14 @@ static WELD: Jet = |_ctx, n| {
 };
 
 static WELP: Jet = WELD;
+
+static ZING: Jet = |_ctx, n| {
+    Noun::list_refs(
+        n.list_iter()
+            .map(|l| l.list_iter())
+            .flatten()
+            .collect::<Vec<_>>()
+            .iter()
+            .cloned(),
+    )
+};
