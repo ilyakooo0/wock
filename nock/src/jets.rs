@@ -1,4 +1,5 @@
 use core::panic;
+use num_bigint::BigUint;
 use num_integer::Integer;
 use std::{
     cmp::Ordering,
@@ -63,6 +64,7 @@ pub fn generate_jets() -> Jets {
         (90634096513747887582230817128332929026, ZING),
         (59352245691598674621226842217946522940, BEX),
         (102718716366123785010912772034318125155, END),
+        (233905026649167301608240871123208487851, CAN),
     ])
 }
 
@@ -565,4 +567,24 @@ static END: Jet = |ctx, n| {
     let mask = (&ctx.big_uints.one << bits) - &ctx.big_uints.one;
 
     Rc::new(Noun::Atom(mask & b.as_atom().unwrap()))
+};
+
+static CAN: Jet = |ctx, n| {
+    let (a, b) = n.as_cell().unwrap();
+    let bloq = a.as_u32().unwrap();
+    let bloq_ = 2u32.pow(bloq);
+
+    let atom: Atom =
+        b.list_iter()
+            .collect::<Vec<_>>()
+            .iter()
+            .rfold(ctx.big_uints.zero.clone(), |acc, next| {
+                let (p, q) = next.as_cell().unwrap();
+                let step = p.as_u32().unwrap();
+                let bits = bloq_ * step;
+                let mask = (&ctx.big_uints.one << bits) - &ctx.big_uints.one;
+
+                (acc << bits) | (mask & q.as_atom().unwrap())
+            });
+    Rc::new(Noun::Atom(atom))
 };
