@@ -68,6 +68,7 @@ pub fn generate_jets() -> Jets {
         (194217032002582779752566874231896746840, MET),
         (132848439781269254342687684309700447927, CUT),
         (184331043431916214773639930303095454137, FIL),
+        (104452959965816676316166435675758878521, LSH),
     ])
 }
 
@@ -657,4 +658,12 @@ static FIL: Jet = |ctx, n| {
     }
 
     Rc::new(Noun::Atom(target))
+};
+
+static LSH: Jet = |_ctx, n| {
+    let (a, b) = n.as_cell().unwrap();
+    let a = a.as_bite().unwrap();
+    let b = b.as_atom().unwrap();
+
+    Rc::new(Noun::Atom(b << a.bits()))
 };
