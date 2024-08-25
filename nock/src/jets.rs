@@ -72,6 +72,7 @@ pub fn generate_jets() -> Jets {
         (84358434946425438379820219100952030132, RSH),
         (49642221456321333759873032692286222867, RAP),
         (92956425869648916777812729456192604084, REP),
+        (302196507237993702819920888576650809366, REV),
     ])
 }
 
@@ -707,6 +708,26 @@ static REP: Jet = |ctx, n| {
 
     for el in b.list_iter().collect::<Vec<_>>().iter().rev() {
         target = (target << bits) | (el.as_atom().unwrap() & &mask);
+    }
+
+    Rc::new(Noun::Atom(target))
+};
+
+static REV: Jet = |ctx, n| {
+    let (bloq, b) = n.as_cell().unwrap();
+    let (len, dat) = b.as_cell().unwrap();
+    let bloq = bloq.as_u32().unwrap();
+    let len = len.as_u32().unwrap();
+    let mut dat: Atom = dat.as_atom().unwrap().clone();
+
+    let bits = 2u32.pow(bloq);
+    let mask = (&ctx.big_uints.one << bits) - &ctx.big_uints.one;
+
+    let mut target = ctx.big_uints.zero.clone();
+
+    for _ in 0..len {
+        target = (target << bits) | (&mask & &dat);
+        dat = dat >> bits;
     }
 
     Rc::new(Noun::Atom(target))
