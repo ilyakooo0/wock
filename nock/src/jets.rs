@@ -1,5 +1,4 @@
 use core::panic;
-use num_bigint::BigUint;
 use num_integer::Integer;
 use std::{
     cmp::Ordering,
@@ -65,6 +64,8 @@ pub fn generate_jets() -> Jets {
         (59352245691598674621226842217946522940, BEX),
         (102718716366123785010912772034318125155, END),
         (233905026649167301608240871123208487851, CAN),
+        (88906713429699361214497715048276521868, CAT),
+        (194217032002582779752566874231896746840, MET),
     ])
 }
 
@@ -562,7 +563,7 @@ static END: Jet = |ctx, n| {
     let (a, b) = n.as_cell().unwrap();
     let bite = a.as_bite().unwrap();
 
-    let bits = 2u32.pow(bite.bloq) * bite.step;
+    let bits = bite.bits();
 
     let mask = (&ctx.big_uints.one << bits) - &ctx.big_uints.one;
 
@@ -588,3 +589,37 @@ static CAN: Jet = |ctx, n| {
             });
     Rc::new(Noun::Atom(atom))
 };
+
+static CAT: Jet = |_ctx, n| {
+    let (bloq, b) = n.as_cell().unwrap();
+    let (b, c) = b.as_cell().unwrap();
+
+    let bloq = bloq.as_u32().unwrap();
+    let b = b.as_atom().unwrap();
+    let c = c.as_atom().unwrap();
+
+    Rc::new(Noun::Atom(
+        (c << (met(bloq, b.clone()) * 2u32.pow(bloq))) | b,
+    ))
+};
+
+static MET: Jet = |_ctx, n| {
+    let (bloq, b) = n.as_cell().unwrap();
+    let b: Atom = b.as_atom().unwrap().clone();
+    let bloq = bloq.as_u32().unwrap();
+
+    Rc::new(Noun::from_u32(met(bloq, b)))
+};
+
+fn met(bloq: u32, mut a: Atom) -> u32 {
+    let bits = 2u32.pow(bloq);
+
+    let mut c = 0;
+
+    while a > Atom::ZERO {
+        a = a >> bits;
+        c += 1;
+    }
+
+    c
+}

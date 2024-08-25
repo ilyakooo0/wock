@@ -169,6 +169,12 @@ pub struct Bite {
     pub step: u32,
 }
 
+impl Bite {
+    pub fn bits(self: &Self) -> u32 {
+        2u32.pow(self.bloq) * self.step
+    }
+}
+
 #[derive(Clone)]
 pub struct NounListIterator {
     noun: Rc<Noun>,
