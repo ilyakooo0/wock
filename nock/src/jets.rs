@@ -70,6 +70,7 @@ pub fn generate_jets() -> Jets {
         (184331043431916214773639930303095454137, FIL),
         (104452959965816676316166435675758878521, LSH),
         (84358434946425438379820219100952030132, RSH),
+        (49642221456321333759873032692286222867, RAP),
     ])
 }
 
@@ -675,4 +676,21 @@ static RSH: Jet = |_ctx, n| {
     let b = b.as_atom().unwrap();
 
     Rc::new(Noun::Atom(b >> a.bits()))
+};
+
+static RAP: Jet = |ctx, n| {
+    let (bloq, b) = n.as_cell().unwrap();
+    let bloq = bloq.as_u32().unwrap();
+    let bits = 2u32.pow(bloq);
+
+    let mut target = ctx.big_uints.zero.clone();
+
+    for el in b.list_iter().collect::<Vec<_>>().iter().rev() {
+        let el = el.as_atom().unwrap();
+        if el != &ctx.big_uints.zero {
+            target = (target << (bits * met(bloq, el.clone()))) | el;
+        }
+    }
+
+    Rc::new(Noun::Atom(target))
 };
