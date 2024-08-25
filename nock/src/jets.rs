@@ -66,6 +66,7 @@ pub fn generate_jets() -> Jets {
         (233905026649167301608240871123208487851, CAN),
         (88906713429699361214497715048276521868, CAT),
         (194217032002582779752566874231896746840, MET),
+        (132848439781269254342687684309700447927, CUT),
     ])
 }
 
@@ -623,3 +624,17 @@ fn met(bloq: u32, mut a: Atom) -> u32 {
 
     c
 }
+
+static CUT: Jet = |ctx, n| {
+    let (a, b) = n.as_cell().unwrap();
+    let (b, d) = b.as_cell().unwrap();
+    let (b, c) = b.as_cell().unwrap();
+
+    let bits = 2u32.pow(a.as_u32().unwrap());
+
+    let mask = (&ctx.big_uints.one << (bits * c.as_u32().unwrap())) - &ctx.big_uints.one;
+
+    Rc::new(Noun::Atom(
+        (d.as_atom().unwrap() >> (bits * b.as_u32().unwrap())) & mask,
+    ))
+};
