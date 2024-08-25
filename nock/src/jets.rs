@@ -74,6 +74,7 @@ pub fn generate_jets() -> Jets {
         (92956425869648916777812729456192604084, REP),
         (302196507237993702819920888576650809366, REV),
         (111192034817574564051316537756194881830, RIP),
+        (194882429025651072335997865399571359986, RUN),
     ])
 }
 
@@ -750,4 +751,28 @@ static RIP: Jet = |ctx, n| {
     }
 
     Noun::list_refs(target.iter().cloned())
+};
+
+static RUN: Jet = |ctx, n| {
+    let (bite, b) = n.as_cell().unwrap();
+    let (b, gate) = b.as_cell().unwrap();
+
+    let bite = bite.as_bite().unwrap();
+    let mut b: Atom = b.as_atom().unwrap().clone();
+
+    let bits = bite.bits();
+    let mask = (&ctx.big_uints.one << bits) - &ctx.big_uints.one;
+
+    let mut target = ctx.big_uints.zero.clone();
+
+    while b > ctx.big_uints.zero {
+        target = (target << bits)
+            | ((*slam(ctx, gate.clone(), Rc::new(Noun::Atom(&mask & &b))))
+                .as_atom()
+                .unwrap()
+                & &mask);
+        b = b >> bits;
+    }
+
+    Rc::new(Noun::Atom(target))
 };
