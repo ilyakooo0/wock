@@ -90,17 +90,13 @@ pub type Jet = fn(ctx: &InterpreterContext, Rc<Noun>) -> Rc<Noun>;
 
 static BINARY_ATOM: fn(Rc<Noun>, fn(&Atom, &Atom) -> Atom) -> Rc<Noun> =
     |n: Rc<Noun>, f: fn(&Atom, &Atom) -> Atom| {
-        let Noun::Cell { p, q, .. } = (*n).clone() else {
-            panic!()
-        };
+        let (p, q) = n.as_cell().unwrap();
         Rc::new(Noun::Atom(f(p.as_atom().unwrap(), q.as_atom().unwrap())))
     };
 
 static BINARY_ATOM_LOOB: fn(&InterpreterContext, Rc<Noun>, fn(&Atom, &Atom) -> bool) -> Rc<Noun> =
     |ctx: &InterpreterContext, n: Rc<Noun>, f: fn(&Atom, &Atom) -> bool| {
-        let Noun::Cell { p, q, .. } = (*n).clone() else {
-            panic!()
-        };
+        let (p, q) = n.as_cell().unwrap();
 
         if f(p.as_atom().unwrap(), q.as_atom().unwrap()) {
             ctx.nouns.sig.clone()
@@ -111,9 +107,8 @@ static BINARY_ATOM_LOOB: fn(&InterpreterContext, Rc<Noun>, fn(&Atom, &Atom) -> b
 
 static BINARY_ATOM_PAIR: fn(Rc<Noun>, fn(&Atom, &Atom) -> (Atom, Atom)) -> Rc<Noun> =
     |n: Rc<Noun>, f: fn(&Atom, &Atom) -> (Atom, Atom)| {
-        let Noun::Cell { p, q, .. } = (*n).clone() else {
-            panic!()
-        };
+        let (p, q) = n.as_cell().unwrap();
+
         let (a, b) = f(p.as_atom().unwrap(), q.as_atom().unwrap());
         cell(Rc::new(Noun::Atom(a)), Rc::new(Noun::Atom(b)))
     };
