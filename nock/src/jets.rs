@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
     interpreter::{slam, InterpreterContext},
-    noun::{self, cell, Atom, Bite, Noun},
+    noun::{self, cell, Atom, Noun},
 };
 
 pub type Jets = BTreeMap<noun::Hash, Jet>;
@@ -79,6 +79,7 @@ pub fn generate_jets() -> Jets {
         (189837220965666741450798472864087835815, SEW),
         (122271149828189266412416527758198690539, SWP),
         (315388312266248574424227833154020891850, XEB),
+        (26880808488368366377851132561579207892, CON),
     ])
 }
 
@@ -856,3 +857,5 @@ static XEB: Jet = |_ctx, n| {
 
     Rc::new(Noun::from_u32(c))
 };
+
+static CON: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a | b);
