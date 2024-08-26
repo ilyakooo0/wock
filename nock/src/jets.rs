@@ -81,6 +81,7 @@ pub fn generate_jets() -> Jets {
         (315388312266248574424227833154020891850, XEB),
         (26880808488368366377851132561579207892, CON),
         (311027486926441687148059942599447850754, DIS),
+        (330927609077697663248483044495963838437, MIX),
     ])
 }
 
@@ -861,3 +862,4 @@ static XEB: Jet = |_ctx, n| {
 
 static CON: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a | b);
 static DIS: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a & b);
+static MIX: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a ^ b);
