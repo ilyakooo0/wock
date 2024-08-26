@@ -82,6 +82,7 @@ pub fn generate_jets() -> Jets {
         (26880808488368366377851132561579207892, CON),
         (311027486926441687148059942599447850754, DIS),
         (330927609077697663248483044495963838437, MIX),
+        (39579736615539990724554083585557839000, NOT),
     ])
 }
 
@@ -863,3 +864,16 @@ static XEB: Jet = |_ctx, n| {
 static CON: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a | b);
 static DIS: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a & b);
 static MIX: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a ^ b);
+
+static NOT: Jet = |ctx, n| {
+    let (a, b) = n.as_cell().unwrap();
+    let (b, c) = b.as_cell().unwrap();
+
+    let bloq = a.as_u32().unwrap();
+    let bits = 2u32.pow(bloq);
+    let mask = (&ctx.big_uints.one << (bits * b.as_u32().unwrap())) - &ctx.big_uints.one;
+
+    let target = c.as_atom().unwrap() ^ &mask;
+
+    Rc::new(Noun::Atom(target))
+};
