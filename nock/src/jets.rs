@@ -77,6 +77,7 @@ pub fn generate_jets() -> Jets {
         (194882429025651072335997865399571359986, RUN),
         (52890757765966568893620799383929397067, RUT),
         (189837220965666741450798472864087835815, SEW),
+        (122271149828189266412416527758198690539, SWP),
     ])
 }
 
@@ -821,6 +822,23 @@ static SEW: Jet = |ctx, n| {
     let apendix = recipient & &mask;
 
     let target = (recipient ^ apendix) | (donor & mask);
+
+    Rc::new(Noun::Atom(target))
+};
+
+static SWP: Jet = |ctx, n| {
+    let (bloq, b) = n.as_cell().unwrap();
+    let bloq = bloq.as_u32().unwrap();
+    let bits = 2u32.pow(bloq);
+    let mask = (&ctx.big_uints.one << bits) - &ctx.big_uints.one;
+
+    let mut source = b.as_atom().unwrap().clone();
+    let mut target = ctx.big_uints.zero.clone();
+
+    while source > ctx.big_uints.zero {
+        target = (target << bits) | (&source & &mask);
+        source = source >> bits;
+    }
 
     Rc::new(Noun::Atom(target))
 };
