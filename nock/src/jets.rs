@@ -78,6 +78,7 @@ pub fn generate_jets() -> Jets {
         (52890757765966568893620799383929397067, RUT),
         (189837220965666741450798472864087835815, SEW),
         (122271149828189266412416527758198690539, SWP),
+        (315388312266248574424227833154020891850, XEB),
     ])
 }
 
@@ -841,4 +842,17 @@ static SWP: Jet = |ctx, n| {
     }
 
     Rc::new(Noun::Atom(target))
+};
+
+static XEB: Jet = |_ctx, n| {
+    let mut a = n.as_atom().unwrap().clone();
+
+    let mut c = 0;
+
+    while a > Atom::ZERO {
+        a = a >> 1;
+        c += 1;
+    }
+
+    Rc::new(Noun::from_u32(c))
 };
