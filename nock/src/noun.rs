@@ -146,19 +146,19 @@ impl Noun {
         (hash_pair((*battery).clone(), context), sample)
     }
 
-    pub fn as_bite(self: &Self) -> Option<Bite> {
+    pub fn as_bite(self: &Self) -> Bite {
         match self {
-            Noun::Atom(_) => Option::Some(Bite {
-                bloq: self.as_u32()?,
+            Noun::Atom(_) => Bite {
+                bloq: self.as_u32().unwrap(),
                 step: 1,
-            }),
+            },
 
             Noun::Cell {
                 p: bloq, q: step, ..
-            } => Option::Some(Bite {
-                bloq: bloq.as_u32()?,
-                step: step.as_u32()?,
-            }),
+            } => Bite {
+                bloq: bloq.as_u32().unwrap(),
+                step: step.as_u32().unwrap(),
+            },
         }
     }
 }

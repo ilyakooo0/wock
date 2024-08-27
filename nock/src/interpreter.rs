@@ -90,7 +90,7 @@ fn fas(ctx: &InterpreterContext, addr: Atom, noun: Rc<Noun>) -> Option<Rc<Noun>>
     let mut addr_iter = addr.iter_u32_digits();
 
     match addr_iter.len() {
-        0 => panic!(),
+        0 => None,
         1 => Some(fas_u32(addr_iter.next()?, noun)?),
         _ => {
             let rest = fas(ctx, &addr >> 1, noun)?;
@@ -149,7 +149,7 @@ fn hax(
     let mut addr_iter = addr.iter_u32_digits();
 
     match addr_iter.len() {
-        0 => panic!(),
+        0 => None,
         1 => hax_u32(addr_iter.next().expect("invariant"), new_value, target),
         _ => hax(
             ctx,
@@ -183,9 +183,7 @@ fn tar_u32(
         }
         1 => Some(formula),
         2 => {
-            let Noun::Cell { p: b, q: c, .. } = (*formula).clone() else {
-                panic!()
-            };
+            let (b, c) = formula.as_cell()?;
 
             match (*c).clone() {
                 Noun::Cell { p, q, .. }
@@ -210,9 +208,7 @@ fn tar_u32(
         3 => Some(wut(ctx, tar(ctx, subj, formula)?)),
         4 => Some(Rc::new(lus(tar(ctx, subj, formula)?)?)),
         5 => {
-            let Noun::Cell { p: b, q: c, .. } = (*formula).clone() else {
-                panic!()
-            };
+            let (b, c) = formula.as_cell()?;
             Some(tis(ctx, tar(ctx, subj.clone(), b)?, tar(ctx, subj, c)?))
         }
         6 => {
@@ -236,21 +232,15 @@ fn tar_u32(
             )
         }
         7 => {
-            let Noun::Cell { p: b, q: c, .. } = (*formula).clone() else {
-                panic!()
-            };
+            let (b, c) = formula.as_cell()?;
             tar(ctx, tar(ctx, subj, b)?, c)
         }
         8 => {
-            let Noun::Cell { p: b, q: c, .. } = (*formula).clone() else {
-                panic!()
-            };
+            let (b, c) = formula.as_cell()?;
             tar(ctx, cell(tar(ctx, subj.clone(), b)?, subj), c)
         }
         9 => {
-            let Noun::Cell { p: b, q: c, .. } = (*formula).clone() else {
-                panic!()
-            };
+            let (b, c) = formula.as_cell()?;
             tar_u32(
                 ctx,
                 tar(ctx, subj, c)?,
@@ -259,22 +249,19 @@ fn tar_u32(
             )
         }
         10 => {
-            let Noun::Cell { p: b, q: d, .. } = (*formula).clone() else {
-                panic!()
-            };
-            let Noun::Cell { p: b, q: c, .. } = (*b).clone() else {
-                panic!()
-            };
-            let Noun::Atom(b) = (*b).clone() else {
-                panic!()
-            };
+            let (b, d) = formula.as_cell()?;
+            let (b, c) = b.as_cell()?;
+            let b = b.as_atom()?;
 
-            hax(ctx, b, tar(ctx, subj.clone(), c)?, tar(ctx, subj, d)?)
+            hax(
+                ctx,
+                b.clone(),
+                tar(ctx, subj.clone(), c)?,
+                tar(ctx, subj, d)?,
+            )
         }
         11 => {
-            let Noun::Cell { p: b, q: d, .. } = (*formula).clone() else {
-                panic!()
-            };
+            let (b, d) = formula.as_cell()?;
             match (*b).clone() {
                 Noun::Atom(_) => tar(ctx, subj, d),
                 Noun::Cell { q: c, .. } => tar_u32(
@@ -285,7 +272,7 @@ fn tar_u32(
                 ),
             }
         }
-        _ => panic!(),
+        _ => None,
     }
 }
 
@@ -296,11 +283,11 @@ pub fn tar(ctx: &InterpreterContext, subj: Rc<Noun>, formula: Rc<Noun>) -> Optio
         Noun::Atom(ref op) => {
             let mut op_iter = op.iter_u32_digits();
             let op = match op_iter.len() {
-                0 => 0,
-                1 => op_iter.next().expect("invariant"),
-                _ => panic!(),
+                0 => Some(0),
+                1 => Some(op_iter.next().unwrap()),
+                _ => None,
             };
-            tar_u32(ctx, subj, op, formula)
+            tar_u32(ctx, subj, op?, formula)
         }
     }
 }
@@ -320,8 +307,8 @@ pub fn eval_gate(ctx: &InterpreterContext, gate: Rc<Noun>) -> Option<Rc<Noun>> {
 }
 
 pub fn slam(ctx: &InterpreterContext, gate: Rc<Noun>, sample: Rc<Noun>) -> Option<Rc<Noun>> {
-    let (battery, payload) = gate.as_cell().unwrap();
-    let (_sample, context) = payload.as_cell().unwrap();
+    let (battery, payload) = gate.as_cell()?;
+    let (_sample, context) = payload.as_cell()?;
 
     eval_gate(ctx, cell(battery, cell(sample, context)))
 }
