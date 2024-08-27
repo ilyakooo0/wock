@@ -13,7 +13,7 @@ fn main() {
 
     let gate = cue_bytes(&jammed_input);
 
-    let result = eval_gate(&generate_interpreter_context(), gate);
+    let result = eval_gate(&generate_interpreter_context(), gate).unwrap();
 
     println!("{result}");
 }
