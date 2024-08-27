@@ -1,5 +1,6 @@
-use nock::serialization::cue_bytes;
 use std::io::{self, Read};
+
+use nock::cue::cue_bytes;
 
 fn main() {
     let mut jammed_input = Vec::new();

@@ -21,6 +21,7 @@
               ]))
             wasm-pack
             wasm-tools
+            cargo-flamegraph
           ];
         };
       });

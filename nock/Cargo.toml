@@ -22,6 +22,11 @@ num-bigint = "0.4.6"
 num-traits = "0.2.19"
 bitter = "0.7.0"
 num-integer = "0.1.46"
+clap = { version = "4.5.16", features = ["derive"] }
+spinoff = "0.8.0"
+bit-vec = "0.8.0"
+bitvec = "1.0.1"
+
 [dependencies.xxhash-rust]
 version = "0.8.5"
 features = ["xxh3"]

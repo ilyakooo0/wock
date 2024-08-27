@@ -1,9 +1,11 @@
 #![feature(iter_intersperse)]
+#![feature(let_chains)]
 #![feature(iter_repeat_n)]
+pub mod cue;
 pub mod interpreter;
+pub mod jam;
 mod jets;
 pub mod noun;
-pub mod serialization;
 mod utils;
 
 use wasm_bindgen::prelude::*;

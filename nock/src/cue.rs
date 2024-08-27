@@ -39,7 +39,7 @@ fn cue_reader(
                 let mut a_iter = a.iter_u32_digits();
                 match a_iter.len() {
                     0 => 0,
-                    1 => a_iter.next().expect("invariant"),
+                    1 => a_iter.next().unwrap(),
                     _ => panic!(),
                 }
             };

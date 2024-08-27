@@ -1,4 +1,8 @@
-use std::{rc::Rc, str::FromStr};
+use std::{
+    cmp::{self, Ordering},
+    rc::Rc,
+    str::FromStr,
+};
 
 use num_bigint::BigUint;
 use std::fmt;
@@ -8,7 +12,7 @@ pub type Atom = BigUint;
 
 pub type Hash = u128;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq)]
 pub enum Noun {
     Atom(Atom),
     Cell {
@@ -16,6 +20,27 @@ pub enum Noun {
         q: Rc<Noun>,
         hash: Hash,
     },
+}
+
+impl Ord for Noun {
+    fn cmp(&self, other: &Self) -> Ordering {
+        compare_nouns(self, other)
+    }
+}
+
+impl PartialOrd for Noun {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(compare_nouns(self, other))
+    }
+}
+
+fn compare_nouns(p: &Noun, q: &Noun) -> Ordering {
+    match (p, q) {
+        (Noun::Atom(_), Noun::Cell { .. }) => Ordering::Less,
+        (Noun::Cell { .. }, Noun::Atom(_)) => Ordering::Greater,
+        (Noun::Atom(x), Noun::Atom(y)) => x.cmp(y),
+        (Noun::Cell { hash: x, .. }, Noun::Cell { hash: y, .. }) => x.cmp(y),
+    }
 }
 
 impl PartialEq for Noun {
@@ -160,6 +185,15 @@ impl Noun {
                 step: step.as_u32().unwrap(),
             },
         }
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Self {
+        Noun::Atom(Atom::from_bytes_le(bytes))
+    }
+
+    pub fn as_bytes(self: &Self) -> Option<Vec<u8>> {
+        let a = self.as_atom()?;
+        Some(a.to_bytes_le())
     }
 }
 
