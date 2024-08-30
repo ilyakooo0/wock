@@ -1,4 +1,6 @@
 use std::{
+    borrow::{Borrow, BorrowMut},
+    cell::Cell,
     cmp::{self, Ordering},
     rc::Rc,
     str::FromStr,
@@ -18,7 +20,7 @@ pub enum Noun {
     Cell {
         p: Rc<Noun>,
         q: Rc<Noun>,
-        hash: Hash,
+        hash: Cell<Option<Hash>>,
     },
 }
 
@@ -151,7 +153,14 @@ impl Noun {
 
     pub fn hash(self: &Self) -> Hash {
         match self {
-            Noun::Cell { hash, .. } => *hash,
+            Noun::Cell { hash, p, q } => match hash.get() {
+                Some(x) => x.clone(),
+                None => {
+                    let hash_value = hash_pair(p.clone(), q.clone());
+                    hash.replace(Some(hash_value));
+                    hash_value
+                }
+            },
             Noun::Atom(a) => xxh3_128(&*a.to_bytes_le()),
         }
     }
@@ -348,7 +357,7 @@ pub fn cell(p: Rc<Noun>, q: Rc<Noun>) -> Rc<Noun> {
     Rc::new(Noun::Cell {
         p: p.clone(),
         q: q.clone(),
-        hash: hash_pair(p, q),
+        hash: Cell::new(None),
     })
 }
 

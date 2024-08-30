@@ -1,2 +1,6 @@
 result
 nock/target
+nock/flamegraph.svg
+nock/perf.data
+nock/perf.data.old
+nock/one.nock
