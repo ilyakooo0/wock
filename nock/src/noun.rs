@@ -156,7 +156,9 @@ impl Noun {
             Noun::Cell { hash, p, q } => match hash.get() {
                 Some(x) => x.clone(),
                 None => {
-                    let hash_value = hash_pair(p.clone(), q.clone());
+                    let hash_value = stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+                        hash_pair(p.clone(), q.clone())
+                    });
                     hash.replace(Some(hash_value));
                     hash_value
                 }

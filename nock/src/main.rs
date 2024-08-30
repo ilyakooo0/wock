@@ -143,17 +143,20 @@ fn build(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
     let make_nock = include_bytes!("../res/make.nock");
     let make = cue_bytes(make_nock);
 
-    let mut root = read_file(&root)?;
+    let root = read_file(&root)?;
 
     let hoon_hoon = include_bytes!("../res/hoon.hoon");
 
-    root.extend_from_slice(b"=>\n");
-    root.extend_from_slice(hoon_hoon);
+    let mut source = Vec::new();
+
+    source.extend_from_slice(b"=>\n");
+    source.extend_from_slice(hoon_hoon);
+    source.extend_from_slice(&root);
 
     let slam_result = slam(
         &generate_interpreter_context(),
         make,
-        Rc::new(Noun::Atom(Atom::from_bytes_le(&root))),
+        Rc::new(Noun::Atom(Atom::from_bytes_le(&source))),
     )
     .unwrap();
 

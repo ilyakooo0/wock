@@ -92,8 +92,8 @@ pub fn generate_jets() -> Jets {
         (311027486926441687148059942599447850754, DIS),
         (330927609077697663248483044495963838437, MIX),
         (39579736615539990724554083585557839000, NOT),
-        // (228256361381255837910155679973102107831, POSE),
         (3482046397915506566435874021936376320, LAST),
+        (124976064672625230427889101290245200507, TRIP),
     ])
 }
 
@@ -886,27 +886,6 @@ static NOT: Jet = |ctx, n| {
     Some(Rc::new(Noun::Atom(target)))
 };
 
-static POSE: Jet = |ctx, n| {
-    println!("runing pose");
-
-    let (edge_noun, rule) = n.as_cell()?;
-    let edge = edge_noun.as_edge()?;
-
-    match edge.result {
-        None => {
-            let roq = eval_gate(ctx, rule)?.as_edge()?;
-            Some(cell(
-                last(&edge.hair, &roq.hair).as_noun(),
-                Noun::from_unit(
-                    roq.result
-                        .map(|(result, nail)| cell(result, nail.as_noun())),
-                ),
-            ))
-        }
-        Some(_) => Some(edge_noun),
-    }
-};
-
 static LAST: Jet = |_ctx, n| {
     let (a, b) = n.as_cell()?;
     let a = a.as_hair()?;
@@ -929,3 +908,10 @@ fn last<'a>(a: &'a Hair, b: &'a Hair) -> &'a Hair {
         }
     }
 }
+
+static TRIP: Jet = |_ctx, n| {
+    let a = n.as_atom()?;
+    Some(Noun::list(
+        a.to_bytes_le().iter().map(|b| Noun::from_u32(*b as u32)),
+    ))
+};
