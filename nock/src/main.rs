@@ -42,6 +42,14 @@ enum NockCommand {
         #[arg(value_name = "FILE.nock")]
         gate: PathBuf,
     },
+    HashDoubleGate {
+        #[arg(value_name = "FILE.nock")]
+        gate: PathBuf,
+    },
+    EvalGate {
+        #[arg(value_name = "FILE.nock")]
+        gate: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -75,21 +83,22 @@ fn main() -> Result<(), std::io::Error> {
 
             println!("{hash}");
         }
+        NockCommand::HashDoubleGate { gate } => {
+            let gate = read_nock(&gate)?;
+            let (hash, _sample_1, _sample_2) = gate.hash_double_gate();
+
+            println!("{hash}");
+        }
+        NockCommand::EvalGate { gate } => {
+            let gate = read_nock(&gate).unwrap();
+
+            let result = eval_gate(&generate_interpreter_context(), gate).unwrap();
+
+            println!("{result}");
+        }
     }
 
     Ok(())
-
-    // let mut jammed_input = Vec::new();
-    // match io::stdin().read_to_end(&mut jammed_input) {
-    //     Err(err) => panic!("{err}"),
-    //     Ok(_) => (),
-    // };
-
-    // let gate = cue_bytes(&jammed_input);
-
-    // let result = eval_gate(&generate_interpreter_context(), gate);
-
-    // println!("{result}");
 }
 
 fn interact(gate_file: PathBuf) -> Result<(), std::io::Error> {

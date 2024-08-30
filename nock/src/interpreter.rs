@@ -27,12 +27,14 @@ pub struct BigUints {
 
 pub struct InterpreterContext {
     pub jets: Jets,
+    pub double_jets: DoubleJets,
     pub nouns: Nouns,
     pub big_uints: BigUints,
 }
 
 pub fn generate_interpreter_context() -> InterpreterContext {
     let jets = generate_jets();
+    let double_jets = generate_double_jets();
     let big_uints = BigUints {
         zero: BigUint::ZERO,
         one: BigUint::new(vec![1]),
@@ -49,6 +51,7 @@ pub fn generate_interpreter_context() -> InterpreterContext {
     let two_three = cell(two.clone(), three.clone());
     InterpreterContext {
         jets,
+        double_jets,
         nouns: Nouns {
             n: one.clone(),
             y: sig.clone(),
@@ -196,7 +199,13 @@ fn tar_u32(
 
                     match ctx.jets.get(&hash) {
                         Some(f) => f(ctx, sample),
-                        None => tar(ctx, tar(ctx, subj.clone(), b)?, tar(ctx, subj, c)?),
+                        None => {
+                            let (hash, sample_1, sample_2) = subj.hash_double_gate();
+                            match ctx.double_jets.get(&hash) {
+                                Some(f) => f(ctx, sample_1, sample_2),
+                                None => tar(ctx, tar(ctx, subj.clone(), b)?, tar(ctx, subj, c)?),
+                            }
+                        }
                     }
                 }
                 _ => tar(ctx, tar(ctx, subj.clone(), b)?, tar(ctx, subj, c)?),
@@ -259,6 +268,7 @@ fn tar_u32(
         }
         11 => {
             let (b, d) = formula.as_cell()?;
+            // println!("{b}");
             match (*b).clone() {
                 Noun::Atom(_) => tar(ctx, subj, d),
                 Noun::Cell { q: c, .. } => tar_u32(

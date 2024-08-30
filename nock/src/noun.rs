@@ -1,28 +1,31 @@
-use std::{
-    borrow::{Borrow, BorrowMut},
-    cell::Cell,
-    cmp::{self, Ordering},
-    rc::Rc,
-    str::FromStr,
-};
+use std::{cell::Cell, cmp::Ordering, rc::Rc, str::FromStr};
 
 use num_bigint::BigUint;
+use num_traits::ToBytes;
 use std::fmt;
 use xxhash_rust::xxh3::xxh3_128;
+
+use crate::interpreter::InterpreterContext;
 
 pub type Atom = BigUint;
 
 pub type Hash = u128;
 
-#[derive(Clone, Debug, Eq)]
+#[derive(Clone, Debug)]
 pub enum Noun {
     Atom(Atom),
     Cell {
         p: Rc<Noun>,
         q: Rc<Noun>,
         hash: Cell<Option<Hash>>,
+        compiled_gate: Option<(
+            Rc<Noun>,
+            Rc<fn(&InterpreterContext, Rc<Noun>, Rc<Noun>) -> Option<Rc<Noun>>>,
+        )>,
     },
 }
+
+impl Eq for Noun {}
 
 impl Ord for Noun {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -55,11 +58,13 @@ impl PartialEq for Noun {
                     p: lhs_p,
                     q: lhs_q,
                     hash: lhs_hash,
+                    compiled_gate: _,
                 },
                 Noun::Cell {
                     p: rhs_p,
                     q: rhs_q,
                     hash: rhs_hash,
+                    compiled_gate: _,
                 },
             ) => lhs_hash == rhs_hash && lhs_p == rhs_p && lhs_q == rhs_q,
             _ => false,
@@ -153,7 +158,12 @@ impl Noun {
 
     pub fn hash(self: &Self) -> Hash {
         match self {
-            Noun::Cell { hash, p, q } => match hash.get() {
+            Noun::Cell {
+                hash,
+                p,
+                q,
+                compiled_gate: _,
+            } => match hash.get() {
                 Some(x) => x.clone(),
                 None => {
                     let hash_value = stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
@@ -169,24 +179,23 @@ impl Noun {
 
     /// returns the hash and the current sample
     pub fn hash_gate(self: &Self) -> (Hash, Rc<Noun>) {
-        let Noun::Cell {
-            p: battery,
-            q: payload,
-            ..
-        } = self
-        else {
-            panic!()
-        };
-        let Noun::Cell {
-            p: sample,
-            q: context,
-            ..
-        } = (**payload).clone()
-        else {
-            panic!()
-        };
+        let (battery, payload) = self.as_cell().unwrap();
+        let (sample, context) = payload.as_cell().unwrap();
 
-        (hash_pair((*battery).clone(), context), sample)
+        (hash_pair(battery.clone(), context), sample)
+    }
+
+    /// returns the hash and the current sample
+    pub fn hash_double_gate(self: &Self) -> (Hash, Rc<Noun>, Rc<Noun>) {
+        let (battery, payload) = self.as_cell().unwrap();
+        let (sample_2, context) = payload.as_cell().unwrap();
+        let (inner_hash, sample_1) = context.hash_gate();
+
+        (
+            hash_tripple(battery.clone(), inner_hash),
+            sample_1,
+            sample_2,
+        )
     }
 
     pub fn as_bite(self: &Self) -> Bite {
@@ -233,7 +242,7 @@ impl Noun {
         let (hair, tape) = self.as_cell()?;
         Some(Nail {
             hair: hair.as_hair()?,
-            rest: tape.as_atom()?.clone(),
+            rest: tape.clone(),
         })
     }
 
@@ -251,12 +260,47 @@ impl Noun {
         };
         Some(Edge { hair, result })
     }
+
+    pub fn with_jet(
+        self: &Self,
+        jet: (
+            Rc<Noun>,
+            Rc<fn(&InterpreterContext, Rc<Noun>, Rc<Noun>) -> Option<Rc<Noun>>>,
+        ),
+    ) -> Self {
+        match self {
+            Noun::Atom(_) => self.clone(),
+            Noun::Cell {
+                p,
+                q,
+                hash,
+                compiled_gate: _,
+            } => Noun::Cell {
+                p: p.clone(),
+                q: q.clone(),
+                hash: hash.clone(),
+                compiled_gate: Some(jet),
+            },
+        }
+    }
 }
 
 #[derive(Clone)]
 pub struct Edge {
     pub hair: Hair,
     pub result: Option<(Rc<Noun>, Nail)>,
+}
+
+impl Edge {
+    pub fn as_noun(self: &Self) -> Rc<Noun> {
+        cell(
+            self.hair.as_noun(),
+            match self.result.clone() {
+                None => Rc::new(Noun::SIG),
+                Some((result, nail)) => cell(Rc::new(Noun::SIG), cell(result, nail.as_noun())),
+            },
+        )
+    }
 }
 
 #[derive(Clone)]
@@ -277,12 +321,12 @@ impl Hair {
 #[derive(Clone)]
 pub struct Nail {
     pub hair: Hair,
-    pub rest: Atom,
+    pub rest: Rc<Noun>,
 }
 
 impl Nail {
     pub fn as_noun(self: &Self) -> Rc<Noun> {
-        cell(self.hair.as_noun(), Rc::new(Noun::Atom(self.rest.clone())))
+        cell(self.hair.as_noun(), self.rest.clone())
     }
 }
 
@@ -360,9 +404,14 @@ pub fn cell(p: Rc<Noun>, q: Rc<Noun>) -> Rc<Noun> {
         p: p.clone(),
         q: q.clone(),
         hash: Cell::new(None),
+        compiled_gate: None,
     })
 }
 
 fn hash_pair(p: Rc<Noun>, q: Rc<Noun>) -> Hash {
     xxh3_128(&[p.hash().to_le_bytes(), q.hash().to_le_bytes()].as_flattened())
+}
+
+fn hash_tripple(p: Rc<Noun>, q: Hash) -> Hash {
+    xxh3_128(&[p.hash().to_le_bytes(), q.to_le_bytes()].as_flattened())
 }

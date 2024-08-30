@@ -1,14 +1,16 @@
 use core::panic;
+use murmur3::murmur3_32;
 use num_integer::Integer;
 use std::{
     collections::BTreeMap,
+    io::Read,
     iter::{once, repeat_n, zip},
     rc::Rc,
 };
 
 use crate::{
     interpreter::{eval_gate, slam, InterpreterContext},
-    noun::{self, cell, Atom, Hair, Noun},
+    noun::{self, cell, Atom, Edge, Hair, Nail, Noun},
 };
 
 fn traverse_iter_option<T: Clone, I: Iterator<Item = Option<T>>>(xs: I) -> Option<Vec<T>> {
@@ -22,6 +24,11 @@ fn traverse_iter_option<T: Clone, I: Iterator<Item = Option<T>>>(xs: I) -> Optio
 }
 
 pub type Jets = BTreeMap<noun::Hash, Jet>;
+pub type DoubleJets = BTreeMap<noun::Hash, DoubleJet>;
+
+pub fn generate_double_jets() -> DoubleJets {
+    BTreeMap::from([(210326504639957723220404138306543145797, JUST)])
+}
 
 pub fn generate_jets() -> Jets {
     BTreeMap::from([
@@ -94,10 +101,12 @@ pub fn generate_jets() -> Jets {
         (39579736615539990724554083585557839000, NOT),
         (3482046397915506566435874021936376320, LAST),
         (124976064672625230427889101290245200507, TRIP),
+        (4078279288073906183633157465551067635, MUK),
     ])
 }
 
 pub type Jet = fn(ctx: &InterpreterContext, Rc<Noun>) -> Option<Rc<Noun>>;
+pub type DoubleJet = fn(ctx: &InterpreterContext, Rc<Noun>, Rc<Noun>) -> Option<Rc<Noun>>;
 
 static BINARY_ATOM: fn(Rc<Noun>, fn(&Atom, &Atom) -> Atom) -> Option<Rc<Noun>> =
     |n: Rc<Noun>, f: fn(&Atom, &Atom) -> Atom| {
@@ -915,3 +924,73 @@ static TRIP: Jet = |_ctx, n| {
         a.to_bytes_le().iter().map(|b| Noun::from_u32(*b as u32)),
     ))
 };
+
+static MUK: Jet = |_ctx, n| {
+    let (seed, len) = n.as_cell()?;
+    let (len, key) = len.as_cell()?;
+    let seed = seed.as_u32()?;
+    let len = len.as_u32()?;
+    let key = key.as_atom()?;
+
+    let key: Vec<_> = key
+        .to_bytes_le()
+        .iter()
+        .take(len as usize)
+        .cloned()
+        .collect();
+
+    Some(Rc::new(Noun::from_u32(
+        murmur3_32(&mut &*key, seed).unwrap(),
+    )))
+};
+
+static JUST: DoubleJet = |ctx, n, m| {
+    let char = n.as_atom()?;
+    let nail = m.as_nail()?;
+    if nail.rest == ctx.nouns.sig {
+        Some(fail(nail).as_noun())
+    } else {
+        let (i, _) = nail.rest.as_cell()?;
+        let i = i.as_atom()?;
+        if i == char {
+            Some(next(nail)?.as_noun())
+        } else {
+            Some(fail(nail).as_noun())
+        }
+    }
+};
+
+fn next(nail: Nail) -> Option<Edge> {
+    if *nail.rest == Noun::SIG {
+        Some(fail(nail))
+    } else {
+        let (i, t) = nail.rest.as_cell()?;
+        let zac = lust(i.as_atom()?.clone(), nail.hair);
+        // cell(zac, cell(Rc::new(Noun::SIG), cell(i, cell(zac, t))))
+        Some(Edge {
+            hair: zac.clone(),
+            result: Some((i, Nail { hair: zac, rest: t })),
+        })
+    }
+}
+
+fn lust(char: Atom, hair: Hair) -> Hair {
+    if char == Atom::from_slice(&vec![10]) {
+        Hair {
+            line: hair.line + 1,
+            column: 1,
+        }
+    } else {
+        Hair {
+            line: hair.line,
+            column: hair.column + 1,
+        }
+    }
+}
+
+fn fail(nail: Nail) -> Edge {
+    Edge {
+        hair: nail.hair,
+        result: None,
+    }
+}
