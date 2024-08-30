@@ -84,6 +84,13 @@ impl Noun {
         cell(Rc::new(Noun::SIG), self)
     }
 
+    pub fn from_unit(unit: Option<Rc<Noun>>) -> Rc<Noun> {
+        match unit {
+            None => Rc::new(Noun::SIG),
+            Some(x) => Noun::unit(x),
+        }
+    }
+
     pub fn as_atom(self: &Self) -> Option<&Atom> {
         match self {
             Noun::Atom(a) => Option::Some(a),
@@ -194,6 +201,77 @@ impl Noun {
     pub fn as_bytes(self: &Self) -> Option<Vec<u8>> {
         let a = self.as_atom()?;
         Some(a.to_bytes_le())
+    }
+
+    pub fn as_hair(self: &Self) -> Option<Hair> {
+        let (line, column) = self.as_cell()?;
+        Some(Hair {
+            line: line.as_u32().unwrap(),
+            column: column.as_u32().unwrap(),
+        })
+    }
+
+    pub fn from_hair(hair: &Hair) -> Rc<Self> {
+        cell(
+            Rc::new(Noun::from_u32(hair.line)),
+            Rc::new(Noun::from_u32(hair.column)),
+        )
+    }
+
+    pub fn as_nail(self: &Self) -> Option<Nail> {
+        let (hair, tape) = self.as_cell()?;
+        Some(Nail {
+            hair: hair.as_hair()?,
+            rest: tape.as_atom()?.clone(),
+        })
+    }
+
+    pub fn as_edge(self: &Self) -> Option<Edge> {
+        let (hair, result) = self.as_cell()?;
+        let hair = hair.as_hair()?;
+        let result = result.as_unit().map(|x| {
+            let (result, nail) = x.as_cell()?;
+            let nail = nail.as_nail()?;
+            Some((result, nail))
+        });
+        let result = match result {
+            Some(result) => result,
+            None => None?,
+        };
+        Some(Edge { hair, result })
+    }
+}
+
+#[derive(Clone)]
+pub struct Edge {
+    pub hair: Hair,
+    pub result: Option<(Rc<Noun>, Nail)>,
+}
+
+#[derive(Clone)]
+pub struct Hair {
+    pub line: u32,
+    pub column: u32,
+}
+
+impl Hair {
+    pub fn as_noun(self: &Self) -> Rc<Noun> {
+        cell(
+            Rc::new(Noun::from_u32(self.line)),
+            Rc::new(Noun::from_u32(self.column)),
+        )
+    }
+}
+
+#[derive(Clone)]
+pub struct Nail {
+    pub hair: Hair,
+    pub rest: Atom,
+}
+
+impl Nail {
+    pub fn as_noun(self: &Self) -> Rc<Noun> {
+        cell(self.hair.as_noun(), Rc::new(Noun::Atom(self.rest.clone())))
     }
 }
 

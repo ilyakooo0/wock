@@ -26,6 +26,7 @@ clap = { version = "4.5.16", features = ["derive"] }
 spinoff = "0.8.0"
 bit-vec = "0.8.0"
 bitvec = "1.0.1"
+stacker = "0.1.17"
 
 [dependencies.xxhash-rust]
 version = "0.8.5"

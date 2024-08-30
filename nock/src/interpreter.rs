@@ -195,10 +195,7 @@ fn tar_u32(
                     let (hash, sample) = subj.hash_gate();
 
                     match ctx.jets.get(&hash) {
-                        Some(f) => {
-                            println!("Evaluating jet {}", hash);
-                            f(ctx, sample)
-                        }
+                        Some(f) => f(ctx, sample),
                         None => tar(ctx, tar(ctx, subj.clone(), b)?, tar(ctx, subj, c)?),
                     }
                 }
@@ -287,7 +284,8 @@ pub fn tar(ctx: &InterpreterContext, subj: Rc<Noun>, formula: Rc<Noun>) -> Optio
                 1 => Some(op_iter.next().unwrap()),
                 _ => None,
             };
-            tar_u32(ctx, subj, op?, formula)
+            let op = op?;
+            stacker::maybe_grow(32 * 1024, 1024 * 1024, || tar_u32(ctx, subj, op, formula))
         }
     }
 }

@@ -1,15 +1,17 @@
+use bitvec::ptr::read_unaligned;
 use clap::{command, error::Result, Parser, Subcommand};
 use nock::{
     cue::cue_bytes,
     interpreter::{self, eval_gate, generate_interpreter_context, slam},
     jam::jam_to_bytes,
-    noun::Noun,
+    noun::{Atom, Noun},
 };
 use spinoff::Spinner;
 use std::{
     borrow::Borrow,
     fs::File,
     io::{self, stdin, stdout, Read, Write},
+    os::unix::fs::FileExt,
     panic::catch_unwind,
     path::PathBuf,
     process::exit,
@@ -36,6 +38,10 @@ enum NockCommand {
         command: RunCommand,
     },
     Cycle,
+    HashGate {
+        #[arg(value_name = "FILE.nock")]
+        gate: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -53,13 +59,21 @@ fn main() -> Result<(), std::io::Error> {
         NockCommand::Run { command } => match command {
             RunCommand::Interact { gate } => interact(gate)?,
         },
-        NockCommand::Build { root, output } => todo!(),
+        NockCommand::Build { root, output } => {
+            build(root, output).unwrap();
+        }
         NockCommand::Cycle => {
             let mut source = Vec::new();
             stdin().read_to_end(&mut source).unwrap();
             let foo = cue_bytes(&source);
             let bat = jam_to_bytes(foo);
             stdout().write(&bat).unwrap();
+        }
+        NockCommand::HashGate { gate } => {
+            let gate = read_nock(&gate)?;
+            let (hash, _sample) = gate.hash_gate();
+
+            println!("{hash}");
         }
     }
 
@@ -105,10 +119,14 @@ fn interact(gate_file: PathBuf) -> Result<(), std::io::Error> {
 }
 
 fn read_nock(nock_file: &PathBuf) -> Result<Rc<Noun>, std::io::Error> {
+    Ok(cue_bytes(&read_file(nock_file)?))
+}
+
+fn read_file(nock_file: &PathBuf) -> Result<Vec<u8>, std::io::Error> {
     let mut file = File::open(nock_file)?;
     let mut contents = Vec::new();
     file.read_to_end(&mut contents)?;
-    Ok(cue_bytes(&contents))
+    Ok(contents)
 }
 
 fn get_stdin() -> Result<Rc<Noun>, std::io::Error> {
@@ -120,3 +138,27 @@ fn get_stdin() -> Result<Rc<Noun>, std::io::Error> {
 fn new_spinner(txt: String) -> Spinner {
     Spinner::new_with_stream(spinoff::spinners::Dots, txt, None, spinoff::Streams::Stderr)
 }
+
+fn build(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
+    let make_nock = include_bytes!("../res/make.nock");
+    let make = cue_bytes(make_nock);
+
+    let mut root = read_file(&root)?;
+
+    let hoon_hoon = include_bytes!("../res/hoon.hoon");
+
+    root.extend_from_slice(b"=>\n");
+    root.extend_from_slice(hoon_hoon);
+
+    let slam_result = slam(
+        &generate_interpreter_context(),
+        make,
+        Rc::new(Noun::Atom(Atom::from_bytes_le(&root))),
+    )
+    .unwrap();
+
+    let mut output_file = File::create(output)?;
+    File::write_all(&mut output_file, &jam_to_bytes(slam_result)).unwrap();
+    Ok(())
+}
+// [%7 <hoon/hoon> <make-result>]

@@ -7,8 +7,8 @@ use std::{
 };
 
 use crate::{
-    interpreter::{slam, InterpreterContext},
-    noun::{self, cell, Atom, Noun},
+    interpreter::{eval_gate, slam, InterpreterContext},
+    noun::{self, cell, Atom, Hair, Noun},
 };
 
 fn traverse_iter_option<T: Clone, I: Iterator<Item = Option<T>>>(xs: I) -> Option<Vec<T>> {
@@ -92,6 +92,8 @@ pub fn generate_jets() -> Jets {
         (311027486926441687148059942599447850754, DIS),
         (330927609077697663248483044495963838437, MIX),
         (39579736615539990724554083585557839000, NOT),
+        // (228256361381255837910155679973102107831, POSE),
+        (3482046397915506566435874021936376320, LAST),
     ])
 }
 
@@ -638,7 +640,7 @@ static CAT: Jet = |_ctx, n| {
     let c = c.as_atom()?;
 
     Some(Rc::new(Noun::Atom(
-        (c << (met(bloq, b.clone()) * 2u32.pow(bloq))) | b,
+        (c << (met(bloq, &b) * 2u32.pow(bloq))) | b,
     )))
 };
 
@@ -647,20 +649,11 @@ static MET: Jet = |_ctx, n| {
     let b: Atom = b.as_atom()?.clone();
     let bloq = bloq.as_u32().unwrap();
 
-    Some(Rc::new(Noun::from_u32(met(bloq, b))))
+    Some(Rc::new(Noun::from_u32(met(bloq, &b))))
 };
 
-fn met(bloq: u32, mut a: Atom) -> u32 {
-    let bits = 2u32.pow(bloq);
-
-    let mut c = 0;
-
-    while a > Atom::ZERO {
-        a = a >> bits;
-        c += 1;
-    }
-
-    c
+fn met(bloq: u32, a: &Atom) -> u32 {
+    (a.bits() as u32).div_ceil(2u32.pow(bloq))
 }
 
 static CUT: Jet = |ctx, n| {
@@ -722,7 +715,7 @@ static RAP: Jet = |ctx, n| {
     for el in b.list_iter().collect::<Vec<_>>().iter().rev() {
         let el = el.as_atom()?;
         if el != &ctx.big_uints.zero {
-            target = (target << (bits * met(bloq, el.clone()))) | el;
+            target = (target << (bits * met(bloq, &el))) | el;
         }
     }
 
@@ -892,3 +885,47 @@ static NOT: Jet = |ctx, n| {
 
     Some(Rc::new(Noun::Atom(target)))
 };
+
+static POSE: Jet = |ctx, n| {
+    println!("runing pose");
+
+    let (edge_noun, rule) = n.as_cell()?;
+    let edge = edge_noun.as_edge()?;
+
+    match edge.result {
+        None => {
+            let roq = eval_gate(ctx, rule)?.as_edge()?;
+            Some(cell(
+                last(&edge.hair, &roq.hair).as_noun(),
+                Noun::from_unit(
+                    roq.result
+                        .map(|(result, nail)| cell(result, nail.as_noun())),
+                ),
+            ))
+        }
+        Some(_) => Some(edge_noun),
+    }
+};
+
+static LAST: Jet = |_ctx, n| {
+    let (a, b) = n.as_cell()?;
+    let a = a.as_hair()?;
+    let b = b.as_hair()?;
+    Some(Noun::from_hair(last(&a, &b)))
+};
+
+fn last<'a>(a: &'a Hair, b: &'a Hair) -> &'a Hair {
+    if a.line == b.line {
+        if a.column > b.column {
+            a
+        } else {
+            b
+        }
+    } else {
+        if a.line > b.line {
+            a
+        } else {
+            b
+        }
+    }
+}
