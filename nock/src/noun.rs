@@ -400,12 +400,16 @@ fn print_noun(noun: Rc<Noun>, is_rhs: bool) -> String {
 }
 
 pub fn cell(p: Rc<Noun>, q: Rc<Noun>) -> Rc<Noun> {
-    Rc::new(Noun::Cell {
+    Rc::new(naked_cell(p, q))
+}
+
+pub fn naked_cell(p: Rc<Noun>, q: Rc<Noun>) -> Noun {
+    Noun::Cell {
         p: p.clone(),
         q: q.clone(),
         hash: Cell::new(None),
         compiled_gate: None,
-    })
+    }
 }
 
 fn hash_pair(p: Rc<Noun>, q: Rc<Noun>) -> Hash {

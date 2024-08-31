@@ -4,7 +4,7 @@ use nock::{
     cue::cue_bytes,
     interpreter::{self, eval_gate, generate_interpreter_context, slam},
     jam::jam_to_bytes,
-    noun::{Atom, Noun},
+    noun::{cell, Atom, Noun},
 };
 use spinoff::Spinner;
 use std::{
@@ -149,28 +149,40 @@ fn new_spinner(txt: String) -> Spinner {
 }
 
 fn build(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
-    let make_nock = include_bytes!("../res/make.nock");
-    let make = cue_bytes(make_nock);
+    println!("reaming");
+    let root_ast = {
+        let ream_nock = include_bytes!("../res/ream.nock");
+        let ream_gate = cue_bytes(ream_nock);
 
-    let root = read_file(&root)?;
+        let root_source = read_file(&root)?;
 
-    let hoon_hoon = include_bytes!("../res/hoon.hoon");
+        slam(
+            &generate_interpreter_context(),
+            ream_gate,
+            Rc::new(Noun::Atom(Atom::from_bytes_le(&root_source))),
+        )
+        .unwrap()
+    };
 
-    let mut source = Vec::new();
+    println!("Loading hoon/hoon");
 
-    source.extend_from_slice(b"=>\n");
-    source.extend_from_slice(hoon_hoon);
-    source.extend_from_slice(&root);
+    let ast = {
+        let hoon_hoon_ast_nock = include_bytes!("../res/hoon-hoon-ast.nock");
+        let hoon_hoon_ast = cue_bytes(hoon_hoon_ast_nock);
+        cell(
+            Rc::new(Noun::Atom(Atom::from_bytes_le(b"tsgl"))),
+            cell(hoon_hoon_ast, root_ast),
+        )
+    };
 
-    let slam_result = slam(
-        &generate_interpreter_context(),
-        make,
-        Rc::new(Noun::Atom(Atom::from_bytes_le(&source))),
-    )
-    .unwrap();
+    println!("minting");
+
+    let mint_gate = cue_bytes(include_bytes!("../res/mint.nock"));
+    let slam_result = slam(&generate_interpreter_context(), mint_gate, ast).unwrap();
+
+    // println!("{slam_result}");
 
     let mut output_file = File::create(output)?;
     File::write_all(&mut output_file, &jam_to_bytes(slam_result)).unwrap();
     Ok(())
 }
-// [%7 <hoon/hoon> <make-result>]

@@ -27,7 +27,10 @@ pub type Jets = BTreeMap<noun::Hash, Jet>;
 pub type DoubleJets = BTreeMap<noun::Hash, DoubleJet>;
 
 pub fn generate_double_jets() -> DoubleJets {
-    BTreeMap::from([(210326504639957723220404138306543145797, JUST)])
+    BTreeMap::from([
+        (210326504639957723220404138306543145797, JUST),
+        // (255213039400865122956425872354360738044, STIR),
+    ])
 }
 
 pub fn generate_jets() -> Jets {
@@ -959,6 +962,16 @@ static JUST: DoubleJet = |ctx, n, m| {
         }
     }
 };
+
+// static STIR: DoubleJet = |ctx, n, m| {
+//     let (rud, raq) = n.as_cell()?;
+//     let (raq, fel) = raq.as_cell()?;
+//     let tub = m.as_nail()?;
+
+//     let mut lef = Vec::new();
+//     let mut vex = slam(ctx, fel, tub)?.as;
+//     if vex.
+// };
 
 fn next(nail: Nail) -> Option<Edge> {
     if *nail.rest == Noun::SIG {
