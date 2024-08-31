@@ -136,7 +136,7 @@ static BINARY_ATOM_PAIR: fn(Rc<Noun>, fn(&Atom, &Atom) -> (Atom, Atom)) -> Optio
         let (p, q) = n.as_cell()?;
 
         let (a, b) = f(p.as_atom()?, q.as_atom()?);
-        Some(cell(Rc::new(Noun::Atom(a)), Rc::new(Noun::Atom(b))))
+        Some(cell(&Noun::Atom(a), &Noun::Atom(b)))
     };
 
 static ADD: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a + b);
@@ -286,7 +286,7 @@ static FIND: Jet = |ctx, n| {
 static FLOP: Jet = |ctx, n| {
     Some(
         n.list_iter()
-            .fold(ctx.nouns.sig.clone(), |tail, head| cell(head, tail)),
+            .fold(ctx.nouns.sig.clone(), |tail, head| cell(&head, &tail)),
     )
 };
 
@@ -317,7 +317,7 @@ static INTO: Jet = |_ctx, n| {
     let mut b_iter = b.as_atom()?.iter_u32_digits();
 
     match b_iter.len() {
-        0 => Some(cell(c, a)),
+        0 => Some(cell(&c, &a)),
         1 => {
             let l = a.list_iter();
             let b = b_iter.next().unwrap() as usize;
@@ -407,7 +407,10 @@ static REEL: Jet = |ctx, n| {
 
     list.list_iter().collect::<Vec<_>>().iter().rfold(
         Some(gate.clone().gate_sample()?.as_cell()?.1),
-        |acc, next| slam(ctx, gate.clone(), cell(next.clone(), acc?)),
+        |acc, next| {
+            let acc = acc?;
+            slam(ctx, gate.clone(), cell(&next, &acc))
+        },
     )
 };
 
@@ -416,7 +419,10 @@ static ROLL: Jet = |ctx, n| {
 
     list.list_iter().fold(
         Some(gate.clone().gate_sample()?.as_cell()?.1),
-        |acc, next| slam(ctx, gate.clone(), cell(next.clone(), acc?)),
+        |acc, next| {
+            let acc = acc?;
+            slam(ctx, gate.clone(), cell(&next, &acc))
+        },
     )
 };
 
@@ -442,8 +448,8 @@ static SKID: Jet = |ctx, n| {
     let (ys, ns): (Vec<_>, _) = slammed_n.iter().partition(|(l, _)| l.is_y());
 
     Some(cell(
-        Noun::list_refs(ys.iter().map(|(_, x)| x).cloned()),
-        Noun::list_refs(ns.iter().map(|(_, x)| x).cloned()),
+        &Noun::list_refs(ys.iter().map(|(_, x)| x.clone())),
+        &Noun::list_refs(ns.iter().map(|(_, x)| x.clone())),
     ))
 };
 
@@ -550,12 +556,12 @@ static SPIN: Jet = |ctx, n| {
     let mut res = Vec::new();
 
     for n in list.list_iter() {
-        let (el, new_acc) = slam(ctx, gate.clone(), cell(n, acc))?.as_cell()?;
+        let (el, new_acc) = slam(ctx, gate.clone(), cell(&n, &acc))?.as_cell()?;
         acc = new_acc;
         res.push(el);
     }
 
-    Some(cell(Noun::list_refs(res.iter().cloned()), acc))
+    Some(cell(&Noun::list_refs(res.iter().cloned()), &acc))
 };
 
 static SPUN: Jet = |ctx, n| {
@@ -565,12 +571,12 @@ static SPUN: Jet = |ctx, n| {
     let mut acc = gate.clone().gate_sample()?.as_cell()?.1;
 
     for n in list.list_iter() {
-        let (el, new_acc) = slam(ctx, gate.clone(), cell(n, acc))?.as_cell()?;
+        let (el, new_acc) = slam(ctx, gate.clone(), cell(&n, &acc))?.as_cell()?;
         acc = new_acc;
         res.push(el);
     }
 
-    Some(cell(Noun::list_refs(res.iter().cloned()), acc))
+    Some(cell(&Noun::list_refs(res.iter().cloned()), &acc))
 };
 
 static TURN: Jet = |ctx, n| {

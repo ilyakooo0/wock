@@ -47,8 +47,8 @@ pub fn generate_interpreter_context() -> InterpreterContext {
     let two = Rc::new(Noun::Atom(big_uints.two.clone()));
     let three = Rc::new(Noun::Atom(big_uints.three.clone()));
     let four = Rc::new(Noun::Atom(big_uints.four.clone()));
-    let sig_one = cell(sig.clone(), one.clone());
-    let two_three = cell(two.clone(), three.clone());
+    let sig_one = cell(&sig, &one);
+    let two_three = cell(&two, &three);
     InterpreterContext {
         jets,
         double_jets,
@@ -67,21 +67,21 @@ pub fn generate_interpreter_context() -> InterpreterContext {
     }
 }
 
-fn wut(ctx: &InterpreterContext, noun: Rc<Noun>) -> Rc<Noun> {
-    match *noun {
+fn wut(ctx: &InterpreterContext, noun: &Noun) -> Rc<Noun> {
+    match noun {
         Noun::Cell { .. } => ctx.nouns.sig.clone(),
         Noun::Atom(_) => ctx.nouns.one.clone(),
     }
 }
 
-fn lus(noun: Rc<Noun>) -> Option<Noun> {
+fn lus(noun: &Noun) -> Option<Noun> {
     match (*noun).clone() {
         Noun::Cell { .. } => None,
         Noun::Atom(atm) => Some(Noun::Atom(atm + 1u32)),
     }
 }
 
-fn tis(ctx: &InterpreterContext, lhs: Rc<Noun>, rhs: Rc<Noun>) -> Rc<Noun> {
+fn tis(ctx: &InterpreterContext, lhs: &Noun, rhs: &Noun) -> Rc<Noun> {
     if lhs == rhs {
         ctx.nouns.sig.clone()
     } else {
@@ -89,14 +89,14 @@ fn tis(ctx: &InterpreterContext, lhs: Rc<Noun>, rhs: Rc<Noun>) -> Rc<Noun> {
     }
 }
 
-fn fas(ctx: &InterpreterContext, addr: Atom, noun: &Noun) -> Option<Rc<Noun>> {
+fn fas(ctx: &InterpreterContext, addr: &Atom, noun: &Noun) -> Option<Rc<Noun>> {
     let mut addr_iter = addr.iter_u32_digits();
 
     match addr_iter.len() {
         0 => None,
         1 => Some(fas_u32(addr_iter.next()?, noun)?),
         _ => {
-            let rest = fas(ctx, &addr >> 1, noun)?;
+            let rest = fas(ctx, &(addr >> 1u8), noun)?;
             Some(fas_u32(
                 if (addr & &ctx.big_uints.one) == ctx.big_uints.one {
                     3
@@ -119,7 +119,7 @@ fn fas_u32(addr: u32, noun: &Noun) -> Option<Rc<Noun>> {
                 2 => Some(p.clone()),
                 3 => Some(q.clone()),
                 _ => {
-                    let rest = fas_u32(n >> 1, &naked_cell(p.clone(), q.clone()))?;
+                    let rest = fas_u32(n >> 1, &naked_cell(&p, &q))?;
                     fas_u32(if (n & 1) == 1 { 3 } else { 2 }, &rest)
                 }
             },
@@ -134,9 +134,11 @@ fn hax_u32(addr: u32, new_value: Rc<Noun>, target: Rc<Noun>) -> Option<Rc<Noun>>
         _ => hax_u32(
             addr >> 1,
             if (addr & 1) == 1 {
-                cell(fas_u32(addr - 1, &target)?, new_value)
+                let foo = fas_u32(addr - 1, &target)?;
+                cell(&foo, &new_value)
             } else {
-                cell(new_value, fas_u32(addr + 1, &target)?)
+                let foo = fas_u32(addr + 1, &target)?;
+                cell(&new_value, &foo)
             },
             target,
         ),
@@ -158,9 +160,11 @@ fn hax(
             ctx,
             &addr >> 1u32,
             if (&addr & &ctx.big_uints.one) == ctx.big_uints.one {
-                cell(fas(ctx, addr - &ctx.big_uints.one, &target)?, new_value)
+                let foo = fas(ctx, &(addr - &ctx.big_uints.one), &target)?;
+                cell(&foo, &new_value)
             } else {
-                cell(new_value, fas(ctx, addr + &ctx.big_uints.one, &target)?)
+                let foo = fas(ctx, &(addr + &ctx.big_uints.one), &target)?;
+                cell(&new_value, &foo)
             },
             target,
         ),
@@ -171,7 +175,7 @@ fn tar_u32(ctx: &InterpreterContext, subj: &Noun, op: u32, formula: Rc<Noun>) ->
     match op {
         0 => {
             let b = formula.as_atom()?.clone();
-            fas(ctx, b, subj)
+            fas(ctx, &b, subj)
         }
         1 => Some(formula),
         2 => {
@@ -181,7 +185,7 @@ fn tar_u32(ctx: &InterpreterContext, subj: &Noun, op: u32, formula: Rc<Noun>) ->
                 Noun::Cell { p, q, .. }
                     if *p == Noun::SIG
                         && q == ctx.nouns.two
-                        && b == cell(Rc::new(Noun::SIG), ctx.nouns.one.clone()) =>
+                        && b == cell(&Noun::SIG, &ctx.nouns.one) =>
                 {
                     // This means we are about the evaluate a gate at the head of the current subject.
                     let (hash, sample) = subj.hash_gate();
@@ -208,12 +212,19 @@ fn tar_u32(ctx: &InterpreterContext, subj: &Noun, op: u32, formula: Rc<Noun>) ->
                 }
             }
         }
-        3 => Some(wut(ctx, tar(ctx, subj, &formula)?)),
-        4 => Some(Rc::new(lus(tar(ctx, subj, &formula)?)?)),
+        3 => {
+            let foo = tar(ctx, subj, &formula)?;
+            Some(wut(ctx, &foo))
+        }
+        4 => {
+            let foo = tar(ctx, subj, &formula)?;
+            Some(Rc::new(lus(&foo)?))
+        }
         5 => {
             let (b, c) = formula.as_cell()?;
             let foo = tar(ctx, &subj, &b)?;
-            Some(tis(ctx, foo, tar(ctx, subj, &c)?))
+            let bar = tar(ctx, subj, &c)?;
+            Some(tis(ctx, &foo, &bar))
         }
         6 => {
             let (b, c) = formula.as_cell()?;
@@ -221,13 +232,13 @@ fn tar_u32(ctx: &InterpreterContext, subj: &Noun, op: u32, formula: Rc<Noun>) ->
 
             let foo = tar_u32(
                 ctx,
-                &cell(c, d),
+                &cell(&c, &d),
                 0,
                 tar_u32(
                     ctx,
                     &ctx.nouns.two_three,
                     0,
-                    tar_u32(ctx, subj, 4, cell(ctx.nouns.four.clone(), b))?,
+                    tar_u32(ctx, subj, 4, cell(&ctx.nouns.four, &b))?,
                 )?,
             )?;
 
@@ -240,7 +251,8 @@ fn tar_u32(ctx: &InterpreterContext, subj: &Noun, op: u32, formula: Rc<Noun>) ->
         }
         8 => {
             let (b, c) = formula.as_cell()?;
-            tar(ctx, &cell(tar(ctx, &subj, &b)?, Rc::new(subj.clone())), &c)
+            let foo = tar(ctx, &subj, &b)?;
+            tar(ctx, &cell(&foo, subj), &c)
         }
         9 => {
             let (b, c) = formula.as_cell()?;
@@ -249,7 +261,7 @@ fn tar_u32(ctx: &InterpreterContext, subj: &Noun, op: u32, formula: Rc<Noun>) ->
                 ctx,
                 &foo,
                 2,
-                cell(ctx.nouns.sig_one.clone(), cell(ctx.nouns.sig.clone(), b)),
+                cell(&ctx.nouns.sig_one, &cell(&ctx.nouns.sig, &b)),
             )
         }
         10 => {
@@ -264,12 +276,11 @@ fn tar_u32(ctx: &InterpreterContext, subj: &Noun, op: u32, formula: Rc<Noun>) ->
             // println!("{b}");
             match (*b).clone() {
                 Noun::Atom(_) => tar(ctx, subj, &d),
-                Noun::Cell { q: c, .. } => tar_u32(
-                    ctx,
-                    &cell(tar(ctx, subj, &c)?, tar(ctx, subj, &d)?),
-                    0,
-                    ctx.nouns.three.clone(),
-                ),
+                Noun::Cell { q: c, .. } => {
+                    let foo = tar(ctx, subj, &c)?;
+                    let bar = tar(ctx, subj, &d)?;
+                    tar_u32(ctx, &cell(&foo, &bar), 0, ctx.nouns.three.clone())
+                }
             }
         }
         _ => None,
@@ -279,7 +290,11 @@ fn tar_u32(ctx: &InterpreterContext, subj: &Noun, op: u32, formula: Rc<Noun>) ->
 pub fn tar(ctx: &InterpreterContext, subj: &Noun, formula: &Noun) -> Option<Rc<Noun>> {
     let (op, formula) = formula.as_cell()?;
     match *op {
-        Noun::Cell { .. } => Some(cell(tar(ctx, subj, &op)?, tar(ctx, subj, &formula)?)),
+        Noun::Cell { .. } => {
+            let foo = tar(ctx, subj, &op)?;
+            let bar = tar(ctx, subj, &formula)?;
+            Some(cell(&foo, &bar))
+        }
         Noun::Atom(ref op) => {
             let mut op_iter = op.iter_u32_digits();
             let op = match op_iter.len() {
@@ -298,11 +313,8 @@ pub fn eval_gate(ctx: &InterpreterContext, gate: Rc<Noun>) -> Option<Rc<Noun>> {
         ctx,
         &gate,
         &cell(
-            Rc::new(Noun::Atom(BigUint::new(vec![9]))),
-            cell(
-                ctx.nouns.two.clone(),
-                cell(ctx.nouns.sig.clone(), ctx.nouns.one.clone()),
-            ),
+            &Noun::Atom(BigUint::new(vec![9])),
+            &cell(&ctx.nouns.two, &cell(&ctx.nouns.sig, &ctx.nouns.one)),
         ),
     )
 }
@@ -311,5 +323,5 @@ pub fn slam(ctx: &InterpreterContext, gate: Rc<Noun>, sample: Rc<Noun>) -> Optio
     let (battery, payload) = gate.as_cell()?;
     let (_sample, context) = payload.as_cell()?;
 
-    eval_gate(ctx, cell(battery, cell(sample, context)))
+    eval_gate(ctx, cell(&battery, &cell(&sample, &context)))
 }

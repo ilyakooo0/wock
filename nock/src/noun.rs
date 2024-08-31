@@ -80,15 +80,15 @@ impl Noun {
     }
 
     pub fn list<I: Iterator<Item = Noun> + DoubleEndedIterator>(l: I) -> Rc<Noun> {
-        l.rfold(Rc::new(Noun::SIG), |tail, head| cell(Rc::new(head), tail))
+        l.rfold(Rc::new(Noun::SIG), |tail, head| cell(&head, &tail))
     }
 
     pub fn list_refs<I: Iterator<Item = Rc<Noun>> + DoubleEndedIterator>(l: I) -> Rc<Noun> {
-        l.rfold(Rc::new(Noun::SIG), |tail, head| cell(head, tail))
+        l.rfold(Rc::new(Noun::SIG), |tail, head| cell(&head, &tail))
     }
 
     pub fn unit(self: Rc<Self>) -> Rc<Noun> {
-        cell(Rc::new(Noun::SIG), self)
+        cell(&Noun::SIG, &self)
     }
 
     pub fn from_unit(unit: Option<Rc<Noun>>) -> Rc<Noun> {
@@ -232,10 +232,7 @@ impl Noun {
     }
 
     pub fn from_hair(hair: &Hair) -> Rc<Self> {
-        cell(
-            Rc::new(Noun::from_u32(hair.line)),
-            Rc::new(Noun::from_u32(hair.column)),
-        )
+        cell(&Noun::from_u32(hair.line), &Noun::from_u32(hair.column))
     }
 
     pub fn as_nail(self: &Self) -> Option<Nail> {
@@ -293,13 +290,14 @@ pub struct Edge {
 
 impl Edge {
     pub fn as_noun(self: &Self) -> Rc<Noun> {
-        cell(
-            self.hair.as_noun(),
-            match self.result.clone() {
-                None => Rc::new(Noun::SIG),
-                Some((result, nail)) => cell(Rc::new(Noun::SIG), cell(result, nail.as_noun())),
-            },
-        )
+        let foo = match self.result.clone() {
+            None => &Noun::SIG,
+            Some((result, nail)) => {
+                let foo = cell(&result, &nail.as_noun());
+                &cell(&Noun::SIG, &foo)
+            }
+        };
+        cell(&self.hair.as_noun(), foo)
     }
 }
 
@@ -311,10 +309,7 @@ pub struct Hair {
 
 impl Hair {
     pub fn as_noun(self: &Self) -> Rc<Noun> {
-        cell(
-            Rc::new(Noun::from_u32(self.line)),
-            Rc::new(Noun::from_u32(self.column)),
-        )
+        cell(&Noun::from_u32(self.line), &Noun::from_u32(self.column))
     }
 }
 
@@ -326,7 +321,7 @@ pub struct Nail {
 
 impl Nail {
     pub fn as_noun(self: &Self) -> Rc<Noun> {
-        cell(self.hair.as_noun(), self.rest.clone())
+        cell(&self.hair.as_noun(), &self.rest)
     }
 }
 
@@ -399,14 +394,14 @@ fn print_noun(noun: Rc<Noun>, is_rhs: bool) -> String {
     }
 }
 
-pub fn cell(p: Rc<Noun>, q: Rc<Noun>) -> Rc<Noun> {
+pub fn cell(p: &Noun, q: &Noun) -> Rc<Noun> {
     Rc::new(naked_cell(p, q))
 }
 
-pub fn naked_cell(p: Rc<Noun>, q: Rc<Noun>) -> Noun {
+pub fn naked_cell(p: &Noun, q: &Noun) -> Noun {
     Noun::Cell {
-        p: p.clone(),
-        q: q.clone(),
+        p: Rc::new(p.clone()),
+        q: Rc::new(q.clone()),
         hash: Cell::new(None),
         compiled_gate: None,
     }

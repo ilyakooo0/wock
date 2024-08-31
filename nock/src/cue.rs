@@ -47,7 +47,7 @@ fn cue_reader(
         } else {
             let p = cue_reader(reader, offset, refs);
             let q = cue_reader(reader, offset, refs);
-            let x = cell(p, q);
+            let x = cell(&p, &q);
             refs.insert(original_offset, x.clone());
             x
         }

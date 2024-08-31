@@ -170,8 +170,8 @@ fn build(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
         let hoon_hoon_ast_nock = include_bytes!("../res/hoon-hoon-ast.nock");
         let hoon_hoon_ast = cue_bytes(hoon_hoon_ast_nock);
         cell(
-            Rc::new(Noun::Atom(Atom::from_bytes_le(b"tsgl"))),
-            cell(hoon_hoon_ast, root_ast),
+            &Noun::Atom(Atom::from_bytes_le(b"tsgl")),
+            &cell(&hoon_hoon_ast, &root_ast),
         )
     };
 
