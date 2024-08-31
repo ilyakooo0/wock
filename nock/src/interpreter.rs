@@ -114,7 +114,7 @@ fn fas_u32(addr: u32, noun: &Noun) -> Option<Rc<Noun>> {
     match addr {
         0 => None,
         1 => Some(Rc::new(noun.clone())),
-        n => match noun.borrow() {
+        n => match noun {
             Noun::Atom(_) => None,
             Noun::Cell { p, q, .. } => match n {
                 2 => Some(p.clone()),

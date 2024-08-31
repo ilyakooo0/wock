@@ -3,13 +3,12 @@ use murmur3::murmur3_32;
 use num_integer::Integer;
 use std::{
     collections::BTreeMap,
-    io::Read,
     iter::{once, repeat_n, zip},
     rc::Rc,
 };
 
 use crate::{
-    interpreter::{eval_gate, slam, InterpreterContext},
+    interpreter::{slam, InterpreterContext},
     noun::{self, cell, Atom, Edge, Hair, Nail, Noun},
 };
 
@@ -336,7 +335,7 @@ static INTO: Jet = |_ctx, n| {
                 .chain(once(c))
                 .collect::<Vec<_>>()
                 .iter()
-                .map(|x| x.clone()),
+                .cloned(),
         )),
     }
 };
@@ -433,7 +432,7 @@ static SCAG: Jet = |_ctx, n| {
             .take(a.as_u32().unwrap() as usize)
             .collect::<Vec<_>>()
             .iter()
-            .map(|x| x.clone()),
+            .cloned(),
     ))
 };
 
@@ -444,8 +443,8 @@ static SKID: Jet = |ctx, n| {
     let (ys, ns): (Vec<_>, _) = slammed_n.iter().partition(|(l, _)| l.is_y());
 
     Some(cell(
-        &Noun::list_refs(ys.iter().map(|(_, x)| x.clone())),
-        &Noun::list_refs(ns.iter().map(|(_, x)| x.clone())),
+        &Noun::list_refs(ys.iter().map(|(_, x)| *x)),
+        &Noun::list_refs(ns.iter().map(|(_, x)| *x)),
     ))
 };
 

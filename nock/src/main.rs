@@ -1,18 +1,15 @@
-use bitvec::ptr::read_unaligned;
 use clap::{command, error::Result, Parser, Subcommand};
+use nock::interpreter::eval_gate;
 use nock::{
     cue::cue_bytes,
-    interpreter::{self, eval_gate, generate_interpreter_context, slam},
+    interpreter::{generate_interpreter_context, slam},
     jam::jam_to_bytes,
     noun::{cell, Atom, Noun},
 };
 use spinoff::Spinner;
 use std::{
-    borrow::Borrow,
     fs::File,
-    io::{self, stdin, stdout, Read, Write},
-    os::unix::fs::FileExt,
-    panic::catch_unwind,
+    io::{stdin, stdout, Read, Write},
     path::PathBuf,
     process::exit,
     rc::Rc,

@@ -4,8 +4,6 @@ use num_bigint::BigUint;
 use std::fmt;
 use xxhash_rust::xxh3::xxh3_128;
 
-use crate::interpreter::InterpreterContext;
-
 pub type Atom = BigUint;
 
 pub type Hash = u128;
