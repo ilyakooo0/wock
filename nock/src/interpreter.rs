@@ -196,15 +196,9 @@ fn tar_u32<'a>(
                     match ctx.jets.get(&hash) {
                         Some(f) => f(ctx, sample),
                         None => {
-                            let (hash, sample_1, sample_2) = subj.hash_double_gate();
-                            match ctx.double_jets.get(&hash) {
-                                Some(f) => f(ctx, sample_1, sample_2),
-                                None => {
-                                    let foo = tar(ctx, subj, &b)?;
-                                    let bar = tar(ctx, subj, &c)?;
-                                    tar(ctx, &foo, &bar)
-                                }
-                            }
+                            let foo = tar(ctx, subj, &b)?;
+                            let bar = tar(ctx, subj, &c)?;
+                            tar(ctx, &foo, &bar)
                         }
                     }
                 }
@@ -311,7 +305,24 @@ pub fn tar<'a>(ctx: &InterpreterContext, subj: &'a Noun, formula: &'a Noun) -> O
     }
 }
 
-pub fn eval_gate(ctx: &InterpreterContext, gate: &Rc<Noun>) -> Option<Rc<Noun>> {
+pub fn eval_gate(ctx: &InterpreterContext, gate_factory: &Rc<Noun>) -> Option<Rc<Noun>> {
+    let pulled_gate = tar(ctx, &ctx.nouns.sig, &gate_factory)?;
+    eval_pulled_gate(ctx, &pulled_gate)
+}
+
+pub fn slam(
+    ctx: &InterpreterContext,
+    gate_factory: &Rc<Noun>,
+    sample: &Rc<Noun>,
+) -> Option<Rc<Noun>> {
+    let gate = tar(ctx, &ctx.nouns.sig, &gate_factory)?;
+
+    eval_pulled_gate(ctx, &replace_sample(&gate, sample)?)
+}
+
+/// This is useful for evaluaing gates produced by running `.foo/nock gate-name` in the dojo.
+/// Also for calling gates from within jets.
+pub fn eval_pulled_gate(ctx: &InterpreterContext, gate: &Rc<Noun>) -> Option<Rc<Noun>> {
     tar(
         ctx,
         &gate,
@@ -322,9 +333,19 @@ pub fn eval_gate(ctx: &InterpreterContext, gate: &Rc<Noun>) -> Option<Rc<Noun>> 
     )
 }
 
-pub fn slam(ctx: &InterpreterContext, gate: &Rc<Noun>, sample: &Rc<Noun>) -> Option<Rc<Noun>> {
+/// This is useful for evaluaing gates produced by running `.foo/nock gate-name` in the dojo.
+/// Also for calling gates from within jets.
+pub fn slam_pulled_gate(
+    ctx: &InterpreterContext,
+    gate: &Rc<Noun>,
+    sample: &Rc<Noun>,
+) -> Option<Rc<Noun>> {
+    eval_pulled_gate(ctx, &replace_sample(gate, sample)?)
+}
+
+pub fn replace_sample(gate: &Rc<Noun>, sample: &Rc<Noun>) -> Option<Rc<Noun>> {
     let (battery, payload) = gate.as_cell()?;
     let (_sample, context) = payload.as_cell()?;
 
-    eval_gate(ctx, &cell(battery, &cell(sample, context)))
+    Some(cell(battery, &cell(sample, context)))
 }

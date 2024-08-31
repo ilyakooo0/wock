@@ -8,7 +8,7 @@ pub type Atom = BigUint;
 
 pub type Hash = u128;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq)]
 pub enum Noun {
     Atom(Atom),
     Cell {
@@ -17,8 +17,6 @@ pub enum Noun {
         hash: Cell<Option<Hash>>,
     },
 }
-
-impl Eq for Noun {}
 
 impl Ord for Noun {
     fn cmp(&self, other: &Self) -> Ordering {
@@ -37,7 +35,14 @@ fn compare_nouns(p: &Noun, q: &Noun) -> Ordering {
         (Noun::Atom(_), Noun::Cell { .. }) => Ordering::Less,
         (Noun::Cell { .. }, Noun::Atom(_)) => Ordering::Greater,
         (Noun::Atom(x), Noun::Atom(y)) => x.cmp(y),
-        (Noun::Cell { hash: x, .. }, Noun::Cell { hash: y, .. }) => x.cmp(y),
+        (
+            Noun::Cell {
+                p: lhs_p, q: lhs_q, ..
+            },
+            Noun::Cell {
+                p: rhs_p, q: rhs_q, ..
+            },
+        ) => (lhs_p, lhs_q).cmp(&(rhs_p, rhs_q)),
     }
 }
 
@@ -50,14 +55,14 @@ impl PartialEq for Noun {
                 Noun::Cell {
                     p: lhs_p,
                     q: lhs_q,
-                    hash: lhs_hash,
+                    hash: _lhs_hash,
                 },
                 Noun::Cell {
                     p: rhs_p,
                     q: rhs_q,
-                    hash: rhs_hash,
+                    hash: _rhs_hash,
                 },
-            ) => lhs_hash == rhs_hash && lhs_p == rhs_p && lhs_q == rhs_q,
+            ) => self.hash() == other.hash() && lhs_p == rhs_p && lhs_q == rhs_q,
             _ => false,
         }
     }

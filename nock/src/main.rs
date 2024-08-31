@@ -1,5 +1,5 @@
 use clap::{command, error::Result, Parser, Subcommand};
-use nock::interpreter::eval_gate;
+use nock::interpreter::{eval_gate, eval_pulled_gate, slam_pulled_gate};
 use nock::{
     cue::cue_bytes,
     interpreter::{generate_interpreter_context, slam},
@@ -24,12 +24,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum NockCommand {
-    Build {
+    #[command(about = "Compiles a single Hoon file to Nock")]
+    Compile {
         #[arg(value_name = "FILE.hoon")]
         root: PathBuf,
         #[arg(short, long, value_name = "FILE.nock")]
         output: PathBuf,
     },
+    #[command(about = "Runs compiled Nock")]
     Run {
         #[command(subcommand)]
         command: RunCommand,
@@ -47,10 +49,17 @@ enum NockCommand {
         #[arg(value_name = "FILE.nock")]
         gate: PathBuf,
     },
+    Eval {
+        #[arg(value_name = "FILE.nock")]
+        nock: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
 enum RunCommand {
+    #[command(
+        about = "Prints the result of slamming all of standard input as a cord against the supplied compiled gate. Expects the gate to also return a cord."
+    )]
     Interact {
         #[arg(value_name = "FILE.nock")]
         gate: PathBuf,
@@ -64,14 +73,19 @@ fn main() -> Result<(), std::io::Error> {
         NockCommand::Run { command } => match command {
             RunCommand::Interact { gate } => interact(gate)?,
         },
-        NockCommand::Build { root, output } => {
-            build(root, output).unwrap();
+        NockCommand::Compile { root, output } => {
+            compile(root, output).unwrap();
         }
         NockCommand::Cycle => {
             let mut source = Vec::new();
+            eprintln!("reading");
             stdin().read_to_end(&mut source).unwrap();
+            eprintln!("cueing");
             let foo = cue_bytes(&source);
-            let bat = jam_to_bytes(foo);
+            // eprintln!("{foo}");
+            eprintln!("jamming");
+            let bat = jam_to_bytes(&foo);
+            eprintln!("writing");
             stdout().write(&bat).unwrap();
         }
         NockCommand::HashGate { gate } => {
@@ -89,7 +103,15 @@ fn main() -> Result<(), std::io::Error> {
         NockCommand::EvalGate { gate } => {
             let gate = read_nock(&gate).unwrap();
 
-            let result = eval_gate(&generate_interpreter_context(), &gate).unwrap();
+            let result = eval_pulled_gate(&generate_interpreter_context(), &gate).unwrap();
+
+            println!("{result}");
+        }
+        NockCommand::Eval { nock } => {
+            let nock = read_nock(&nock).unwrap();
+
+            let ctx = generate_interpreter_context();
+            let result = eval_pulled_gate(&ctx, &nock).unwrap();
 
             println!("{result}");
         }
@@ -145,7 +167,7 @@ fn new_spinner(txt: String) -> Spinner {
     Spinner::new_with_stream(spinoff::spinners::Dots, txt, None, spinoff::Streams::Stderr)
 }
 
-fn build(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
+fn compile(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
     println!("reaming");
     let root_ast = {
         let ream_nock = include_bytes!("../res/ream.nock");
@@ -153,7 +175,7 @@ fn build(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
 
         let root_source = read_file(&root)?;
 
-        slam(
+        slam_pulled_gate(
             &generate_interpreter_context(),
             &ream_gate,
             &Rc::new(Noun::Atom(Atom::from_bytes_le(&root_source))),
@@ -175,11 +197,11 @@ fn build(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
     println!("minting");
 
     let mint_gate = cue_bytes(include_bytes!("../res/mint.nock"));
-    let slam_result = slam(&generate_interpreter_context(), &mint_gate, &ast).unwrap();
-
-    // println!("{slam_result}");
+    let minted_ast =
+        slam_pulled_gate(&generate_interpreter_context(), &mint_gate, &root_ast).unwrap();
+    let (_type, nock) = minted_ast.as_cell().unwrap();
 
     let mut output_file = File::create(output)?;
-    File::write_all(&mut output_file, &jam_to_bytes(slam_result)).unwrap();
+    File::write_all(&mut output_file, &jam_to_bytes(nock)).unwrap();
     Ok(())
 }

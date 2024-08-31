@@ -1,23 +1,23 @@
-use std::{collections::BTreeMap, rc::Rc};
+use std::{borrow::Borrow, collections::BTreeMap, rc::Rc};
 
 use bitvec::vec::BitVec;
 use num_traits::FromPrimitive;
 
 use crate::noun::{Atom, Noun};
 
-pub fn jam_to_bytes(noun: Rc<Noun>) -> Vec<u8> {
+pub fn jam_to_bytes(noun: &Rc<Noun>) -> Vec<u8> {
     let mut vec: BitVec<u8> = BitVec::new();
     jam(noun, &mut vec, &mut BTreeMap::new());
     vec.into_vec()
 }
 
-fn jam(noun: Rc<Noun>, vec: &mut BitVec<u8>, refs: &mut BTreeMap<Noun, usize>) {
+fn jam(noun: &Rc<Noun>, vec: &mut BitVec<u8>, refs: &mut BTreeMap<Noun, usize>) {
     let offset = vec.len();
 
-    match refs.get(&noun).cloned() {
+    match refs.get(noun).cloned() {
         Some(id) => {
             let id = Atom::from_usize(id).unwrap();
-            if let Noun::Atom(a) = (*noun).clone()
+            if let Noun::Atom(a) = noun.borrow()
                 && a.bits() <= id.bits()
             {
                 vec.push(false);
@@ -29,9 +29,9 @@ fn jam(noun: Rc<Noun>, vec: &mut BitVec<u8>, refs: &mut BTreeMap<Noun, usize>) {
             }
         }
         None => {
-            refs.insert((*noun).clone(), offset);
+            refs.insert((**noun).clone(), offset);
 
-            match (*noun).clone() {
+            match noun.borrow() {
                 Noun::Atom(a) => {
                     vec.push(false);
                     mat(&a, vec);
@@ -39,8 +39,8 @@ fn jam(noun: Rc<Noun>, vec: &mut BitVec<u8>, refs: &mut BTreeMap<Noun, usize>) {
                 Noun::Cell { p, q, .. } => {
                     vec.push(true);
                     vec.push(false);
-                    jam(p, vec, refs);
-                    jam(q, vec, refs);
+                    jam(&p, vec, refs);
+                    jam(&q, vec, refs);
                 }
             }
         }
