@@ -92,7 +92,7 @@ fn main() -> Result<(), std::io::Error> {
         NockCommand::EvalGate { gate } => {
             let gate = read_nock(&gate).unwrap();
 
-            let result = eval_gate(&generate_interpreter_context(), gate).unwrap();
+            let result = eval_gate(&generate_interpreter_context(), &gate).unwrap();
 
             println!("{result}");
         }
@@ -112,7 +112,7 @@ fn interact(gate_file: PathBuf) -> Result<(), std::io::Error> {
     let source = get_stdin().unwrap();
 
     let mut spinner = new_spinner(String::from("Slamming gate..."));
-    let Some(slam) = slam(&generate_interpreter_context(), gate, source) else {
+    let Some(slam) = slam(&generate_interpreter_context(), &gate, &source) else {
         spinner.fail("Gate execution failed");
         exit(1);
     };
@@ -158,8 +158,8 @@ fn build(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
 
         slam(
             &generate_interpreter_context(),
-            ream_gate,
-            Rc::new(Noun::Atom(Atom::from_bytes_le(&root_source))),
+            &ream_gate,
+            &Rc::new(Noun::Atom(Atom::from_bytes_le(&root_source))),
         )
         .unwrap()
     };
@@ -170,7 +170,7 @@ fn build(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
         let hoon_hoon_ast_nock = include_bytes!("../res/hoon-hoon-ast.nock");
         let hoon_hoon_ast = cue_bytes(hoon_hoon_ast_nock);
         cell(
-            &Noun::Atom(Atom::from_bytes_le(b"tsgl")),
+            &Rc::new(Noun::Atom(Atom::from_bytes_le(b"tsgl"))),
             &cell(&hoon_hoon_ast, &root_ast),
         )
     };
@@ -178,7 +178,7 @@ fn build(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
     println!("minting");
 
     let mint_gate = cue_bytes(include_bytes!("../res/mint.nock"));
-    let slam_result = slam(&generate_interpreter_context(), mint_gate, ast).unwrap();
+    let slam_result = slam(&generate_interpreter_context(), &mint_gate, &ast).unwrap();
 
     // println!("{slam_result}");
 

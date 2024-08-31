@@ -108,20 +108,20 @@ pub fn generate_jets() -> Jets {
     ])
 }
 
-pub type Jet = fn(ctx: &InterpreterContext, Rc<Noun>) -> Option<Rc<Noun>>;
-pub type DoubleJet = fn(ctx: &InterpreterContext, Rc<Noun>, Rc<Noun>) -> Option<Rc<Noun>>;
+pub type Jet = fn(ctx: &InterpreterContext, &Rc<Noun>) -> Option<Rc<Noun>>;
+pub type DoubleJet = fn(ctx: &InterpreterContext, &Rc<Noun>, &Rc<Noun>) -> Option<Rc<Noun>>;
 
-static BINARY_ATOM: fn(Rc<Noun>, fn(&Atom, &Atom) -> Atom) -> Option<Rc<Noun>> =
-    |n: Rc<Noun>, f: fn(&Atom, &Atom) -> Atom| {
+static BINARY_ATOM: fn(&Rc<Noun>, fn(&Atom, &Atom) -> Atom) -> Option<Rc<Noun>> =
+    |n: &Rc<Noun>, f: fn(&Atom, &Atom) -> Atom| {
         let (p, q) = n.as_cell()?;
         Some(Rc::new(Noun::Atom(f(p.as_atom()?, q.as_atom()?))))
     };
 
 static BINARY_ATOM_LOOB: fn(
     &InterpreterContext,
-    Rc<Noun>,
+    &Rc<Noun>,
     fn(&Atom, &Atom) -> bool,
-) -> Option<Rc<Noun>> = |ctx: &InterpreterContext, n: Rc<Noun>, f: fn(&Atom, &Atom) -> bool| {
+) -> Option<Rc<Noun>> = |ctx: &InterpreterContext, n: &Rc<Noun>, f: fn(&Atom, &Atom) -> bool| {
     let (p, q) = n.as_cell()?;
 
     if f(p.as_atom()?, q.as_atom()?) {
@@ -131,12 +131,12 @@ static BINARY_ATOM_LOOB: fn(
     }
 };
 
-static BINARY_ATOM_PAIR: fn(Rc<Noun>, fn(&Atom, &Atom) -> (Atom, Atom)) -> Option<Rc<Noun>> =
-    |n: Rc<Noun>, f: fn(&Atom, &Atom) -> (Atom, Atom)| {
+static BINARY_ATOM_PAIR: fn(&Rc<Noun>, fn(&Atom, &Atom) -> (Atom, Atom)) -> Option<Rc<Noun>> =
+    |n: &Rc<Noun>, f: fn(&Atom, &Atom) -> (Atom, Atom)| {
         let (p, q) = n.as_cell()?;
 
         let (a, b) = f(p.as_atom()?, q.as_atom()?);
-        Some(cell(&Noun::Atom(a), &Noun::Atom(b)))
+        Some(cell(&Rc::new(Noun::Atom(a)), &Rc::new(Noun::Atom(b))))
     };
 
 static ADD: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a + b);
@@ -231,7 +231,7 @@ static FAND: Jet = |ctx, n| {
         return Some(ctx.nouns.sig.clone());
     }
 
-    let nedl: Vec<Rc<Noun>> = nedl.list_iter().collect();
+    let nedl: Vec<&Rc<Noun>> = nedl.list_iter().collect();
 
     let mut result: Vec<u32> = Vec::new();
 
@@ -261,7 +261,7 @@ static FIND: Jet = |ctx, n| {
         return Some(ctx.nouns.sig.clone());
     }
 
-    let nedl: Vec<Rc<Noun>> = nedl.list_iter().collect();
+    let nedl: Vec<&Rc<Noun>> = nedl.list_iter().collect();
 
     let mut iter = zip(0.., hstk.list_iter());
 
@@ -328,7 +328,7 @@ static INTO: Jet = |_ctx, n| {
                     .chain(l.skip(b))
                     .collect::<Vec<_>>()
                     .iter()
-                    .map(|x| x.clone()),
+                    .map(|x| *x),
             ))
         }
         _ => Some(Noun::list_refs(
@@ -360,7 +360,7 @@ static LENT: Jet = |_ctx, n| {
 
 static LEVY: Jet = |ctx, n| {
     let (a, b) = n.as_cell()?;
-    if traverse_iter_option(a.list_iter().map(|n| slam(ctx, b.clone(), n)))?
+    if traverse_iter_option(a.list_iter().map(|n| slam(ctx, b, n)))?
         .iter()
         .all(|x| x.is_y())
     {
@@ -372,7 +372,7 @@ static LEVY: Jet = |ctx, n| {
 
 static LIEN: Jet = |ctx, n| {
     let (a, b) = n.as_cell()?;
-    if traverse_iter_option(a.list_iter().map(|n| slam(ctx, b.clone(), n)))?
+    if traverse_iter_option(a.list_iter().map(|n| slam(ctx, b, n)))?
         .iter()
         .any(|x| x.is_y())
     {
@@ -387,10 +387,9 @@ static MURN: Jet = |ctx, n| {
 
     Some(Noun::list_refs(
         a.list_iter()
-            .filter_map(|n| slam(ctx, b.clone(), n)?.as_unit())
+            .filter_map(|n| slam(ctx, b, n)?.as_unit().cloned())
             .collect::<Vec<_>>()
-            .iter()
-            .map(|x| x.clone()),
+            .iter(),
     ))
 };
 
@@ -400,16 +399,16 @@ static REAP: Jet = |_ctx, n| {
     Some(Noun::list_refs(repeat_n(b, a.as_u32().unwrap() as usize)))
 };
 
-static REAR: Jet = |_ctx, n| n.list_iter().last();
+static REAR: Jet = |_ctx, n| n.list_iter().last().cloned();
 
 static REEL: Jet = |ctx, n| {
     let (list, gate) = n.as_cell()?;
 
     list.list_iter().collect::<Vec<_>>().iter().rfold(
-        Some(gate.clone().gate_sample()?.as_cell()?.1),
+        Some(gate.gate_sample()?.as_cell()?.1.clone()),
         |acc, next| {
             let acc = acc?;
-            slam(ctx, gate.clone(), cell(&next, &acc))
+            slam(ctx, gate, &cell(&next, &acc))
         },
     )
 };
@@ -418,10 +417,10 @@ static ROLL: Jet = |ctx, n| {
     let (list, gate) = n.as_cell()?;
 
     list.list_iter().fold(
-        Some(gate.clone().gate_sample()?.as_cell()?.1),
+        Some(gate.clone().gate_sample()?.as_cell()?.1.clone()),
         |acc, next| {
             let acc = acc?;
-            slam(ctx, gate.clone(), cell(&next, &acc))
+            slam(ctx, gate, &cell(&next, &acc))
         },
     )
 };
@@ -441,10 +440,7 @@ static SCAG: Jet = |_ctx, n| {
 static SKID: Jet = |ctx, n| {
     let (list, gate) = n.as_cell()?;
 
-    let slammed_n = traverse_iter_option(
-        list.list_iter()
-            .map(|n| Some((slam(ctx, gate.clone(), n.clone())?, n))),
-    )?;
+    let slammed_n = traverse_iter_option(list.list_iter().map(|n| Some((slam(ctx, gate, n)?, n))))?;
     let (ys, ns): (Vec<_>, _) = slammed_n.iter().partition(|(l, _)| l.is_y());
 
     Some(cell(
@@ -457,14 +453,10 @@ static SKIM: Jet = |ctx, n| {
     let (list, gate) = n.as_cell()?;
 
     Some(Noun::list_refs(
-        traverse_iter_option(
-            list.list_iter()
-                .map(|n| Some((slam(ctx, gate.clone(), n.clone())?, n))),
-        )?
-        .iter()
-        .filter(|(l, _)| l.is_y())
-        .map(|(_, x)| x)
-        .cloned(),
+        traverse_iter_option(list.list_iter().map(|n| Some((slam(ctx, gate, n)?, n))))?
+            .iter()
+            .filter(|(l, _)| l.is_y())
+            .map(|(_, x)| *x),
     ))
 };
 
@@ -472,14 +464,11 @@ static SKIP: Jet = |ctx, n| {
     let (list, gate) = n.as_cell()?;
 
     Some(Noun::list_refs(
-        traverse_iter_option(
-            list.list_iter()
-                .map(|n| Some((slam(ctx, gate.clone(), n.clone())?, n))),
-        )?
-        .iter()
-        .filter(|(l, _)| l.is_y())
-        .map(|(_, x)| x)
-        .cloned(),
+        traverse_iter_option(list.list_iter().map(|n| Some((slam(ctx, gate, n)?, n))))?
+            .iter()
+            .filter(|(l, _)| l.is_y())
+            .map(|(_, x)| x)
+            .cloned(),
     ))
 };
 
@@ -489,7 +478,7 @@ static SLAG: Jet = |ctx, n| {
     let mut a_iter = a.as_atom()?.iter_u32_digits();
 
     match a_iter.len() {
-        0 => Some(list),
+        0 => Some(list.clone()),
         1 => Some(Noun::list_refs(
             list.list_iter()
                 .skip(a_iter.next().unwrap() as usize)
@@ -504,7 +493,7 @@ static SLAG: Jet = |ctx, n| {
 static SNAG: Jet = |_ctx, n| {
     let (a, list) = n.as_cell()?;
 
-    list.list_iter().nth(a.as_u32().unwrap() as usize)
+    list.list_iter().nth(a.as_u32().unwrap() as usize).cloned()
 };
 
 static SNIP: Jet = |_ctx, n| {
@@ -551,40 +540,41 @@ static SNOC: Jet = |_ctx, n| {
 
 static SPIN: Jet = |ctx, n| {
     let (list, b) = n.as_cell()?;
-    let (mut acc, gate) = b.as_cell()?;
+    let (acc, gate) = b.as_cell()?;
 
     let mut res = Vec::new();
+    let mut acc = acc.clone();
 
     for n in list.list_iter() {
-        let (el, new_acc) = slam(ctx, gate.clone(), cell(&n, &acc))?.as_cell()?;
-        acc = new_acc;
-        res.push(el);
+        let foo = slam(ctx, gate, &cell(&n, &acc))?;
+        let (el, new_acc) = foo.as_cell()?;
+        acc = new_acc.clone();
+        res.push(el.clone());
     }
 
-    Some(cell(&Noun::list_refs(res.iter().cloned()), &acc))
+    Some(cell(&Noun::list_refs(res.iter()), &acc))
 };
 
 static SPUN: Jet = |ctx, n| {
     let (list, gate) = n.as_cell()?;
 
     let mut res = Vec::new();
-    let mut acc = gate.clone().gate_sample()?.as_cell()?.1;
+    let mut acc = gate.gate_sample()?.as_cell()?.1.clone();
 
     for n in list.list_iter() {
-        let (el, new_acc) = slam(ctx, gate.clone(), cell(&n, &acc))?.as_cell()?;
-        acc = new_acc;
-        res.push(el);
+        let foo = slam(ctx, gate, &cell(&n, &acc))?;
+        let (el, new_acc) = foo.as_cell()?;
+        acc = new_acc.clone();
+        res.push(el.clone());
     }
 
-    Some(cell(&Noun::list_refs(res.iter().cloned()), &acc))
+    Some(cell(&Noun::list_refs(res.iter()), &acc))
 };
 
 static TURN: Jet = |ctx, n| {
     let (list, gate) = n.as_cell()?;
     Some(Noun::list_refs(
-        traverse_iter_option(list.list_iter().map(|x| slam(ctx, gate.clone(), x)))?
-            .iter()
-            .cloned(),
+        traverse_iter_option(list.list_iter().map(|x| slam(ctx, gate, x)))?.iter(),
     ))
 };
 
@@ -791,7 +781,7 @@ static RIP: Jet = |ctx, n| {
         b = b >> bits;
     }
 
-    Some(Noun::list_refs(target.iter().cloned()))
+    Some(Noun::list_refs(target.iter()))
 };
 
 static RUN: Jet = |ctx, n| {
@@ -808,7 +798,7 @@ static RUN: Jet = |ctx, n| {
 
     while b > ctx.big_uints.zero {
         target = (target << bits)
-            | ((*slam(ctx, gate.clone(), Rc::new(Noun::Atom(&mask & &b)))?).as_atom()? & &mask);
+            | ((*slam(ctx, gate, &Rc::new(Noun::Atom(&mask & &b)))?).as_atom()? & &mask);
         b = b >> bits;
     }
 
@@ -828,8 +818,7 @@ static RUT: Jet = |ctx, n| {
     let mut target = Vec::new();
 
     while b > ctx.big_uints.zero {
-        target
-            .push((*slam(ctx, gate.clone(), Rc::new(Noun::Atom(&mask & &b)))?).as_atom()? & &mask);
+        target.push((*slam(ctx, gate, &Rc::new(Noun::Atom(&mask & &b)))?).as_atom()? & &mask);
         b = b >> bits;
     }
 
@@ -956,7 +945,7 @@ static MUK: Jet = |_ctx, n| {
 static JUST: DoubleJet = |ctx, n, m| {
     let char = n.as_atom()?;
     let nail = m.as_nail()?;
-    if nail.rest == ctx.nouns.sig {
+    if *nail.rest == ctx.nouns.sig {
         Some(fail(nail).as_noun())
     } else {
         let (i, _) = nail.rest.as_cell()?;
@@ -979,8 +968,8 @@ static JUST: DoubleJet = |ctx, n, m| {
 //     if vex.
 // };
 
-fn next(nail: Nail) -> Option<Edge> {
-    if *nail.rest == Noun::SIG {
+fn next<'a>(nail: Nail<'a>) -> Option<Edge<'a>> {
+    if **nail.rest == Noun::SIG {
         Some(fail(nail))
     } else {
         let (i, t) = nail.rest.as_cell()?;
