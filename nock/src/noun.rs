@@ -1,4 +1,4 @@
-use std::{cell::Cell, cmp::Ordering, rc::Rc, str::FromStr};
+use std::{cell::Cell, cmp::Ordering, fmt::Write, rc::Rc};
 
 use num_bigint::BigUint;
 use std::fmt;
@@ -31,40 +31,12 @@ impl PartialOrd for Noun {
 }
 
 fn compare_nouns(p: &Noun, q: &Noun) -> Ordering {
-    match (p, q) {
-        (Noun::Atom(_), Noun::Cell { .. }) => Ordering::Less,
-        (Noun::Cell { .. }, Noun::Atom(_)) => Ordering::Greater,
-        (Noun::Atom(x), Noun::Atom(y)) => x.cmp(y),
-        (
-            Noun::Cell {
-                p: lhs_p, q: lhs_q, ..
-            },
-            Noun::Cell {
-                p: rhs_p, q: rhs_q, ..
-            },
-        ) => (lhs_p, lhs_q).cmp(&(rhs_p, rhs_q)),
-    }
+    p.hash().cmp(&q.hash())
 }
 
 impl PartialEq for Noun {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Noun::Atom(lhs), Noun::Atom(rhs)) => lhs == rhs,
-
-            (
-                Noun::Cell {
-                    p: lhs_p,
-                    q: lhs_q,
-                    hash: _lhs_hash,
-                },
-                Noun::Cell {
-                    p: rhs_p,
-                    q: rhs_q,
-                    hash: _rhs_hash,
-                },
-            ) => self.hash() == other.hash() && lhs_p == rhs_p && lhs_q == rhs_q,
-            _ => false,
-        }
+        self.hash().eq(&other.hash())
     }
 }
 
@@ -331,24 +303,32 @@ impl<'a> Iterator for NounListIterator<'a> {
 
 impl fmt::Display for Noun {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str(print_noun(Rc::new(self.clone()), false).as_str())
+        write_noun(f, self, false)
     }
 }
 
-fn print_noun(noun: Rc<Noun>, is_rhs: bool) -> String {
-    match (*noun).clone() {
+fn write_noun(f: &mut fmt::Formatter, noun: &Noun, is_rhs: bool) -> fmt::Result {
+    match noun {
         Noun::Cell { p, q, .. } if is_rhs => {
-            format!("{} {}", print_noun(p, false), print_noun(q, true))
+            write_noun(f, p, false)?;
+            f.write_char(' ')?;
+            write_noun(f, q, true)
         }
-        Noun::Cell { p, q, .. } => format!("[{} {}]", print_noun(p, false), print_noun(q, true)),
+        Noun::Cell { p, q, .. } => {
+            f.write_char('[')?;
+            write_noun(f, p, false)?;
+            f.write_char(' ')?;
+            write_noun(f, q, true)?;
+            f.write_char(']')
+        }
         Noun::Atom(a) => {
             let atom_bytes = a.to_bytes_le();
             if atom_bytes.len() > 1 && atom_bytes.into_iter().all(|c| (c > 33) && c < 126) {
-                format!("%{}", unsafe {
-                    String::from_utf8_unchecked(a.to_bytes_le())
-                })
-            } else if a == BigUint::ZERO {
-                String::from_str("~").unwrap()
+                f.write_char('%')?;
+                let cord = unsafe { String::from_utf8_unchecked(a.to_bytes_le()) };
+                f.write_str(&*cord)
+            } else if a == &BigUint::ZERO {
+                f.write_char('~')
             } else {
                 let mut result = String::new();
                 let mut counter = 0;
@@ -360,8 +340,7 @@ fn print_noun(noun: Rc<Noun>, is_rhs: bool) -> String {
                     counter += 1;
                     result.push(char);
                 }
-                let foo: String = result.chars().rev().collect();
-                foo
+                f.write_str(&*result.chars().rev().collect::<String>())
             }
         }
     }

@@ -36,7 +36,6 @@ enum NockCommand {
         #[command(subcommand)]
         command: RunCommand,
     },
-    Cycle,
     HashGate {
         #[arg(value_name = "FILE.nock")]
         gate: PathBuf,
@@ -75,18 +74,6 @@ fn main() -> Result<(), std::io::Error> {
         },
         NockCommand::Compile { root, output } => {
             compile(root, output).unwrap();
-        }
-        NockCommand::Cycle => {
-            let mut source = Vec::new();
-            eprintln!("reading");
-            stdin().read_to_end(&mut source).unwrap();
-            eprintln!("cueing");
-            let foo = cue_bytes(&source);
-            // eprintln!("{foo}");
-            eprintln!("jamming");
-            let bat = jam_to_bytes(&foo);
-            eprintln!("writing");
-            stdout().write(&bat).unwrap();
         }
         NockCommand::HashGate { gate } => {
             let gate = read_nock(&gate)?;
