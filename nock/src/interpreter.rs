@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use num_bigint::BigUint;
@@ -16,6 +17,7 @@ pub struct Nouns {
     pub four: Rc<Noun>,
     pub sig_one: Rc<Noun>,
     pub two_three: Rc<Noun>,
+    pub memo: Rc<Noun>,
 }
 
 pub struct BigUints {
@@ -31,6 +33,7 @@ pub struct InterpreterContext {
     pub double_jets: DoubleJets,
     pub nouns: Nouns,
     pub big_uints: BigUints,
+    pub memo: BTreeMap<Hash, Rc<Noun>>,
 }
 
 pub fn generate_interpreter_context() -> InterpreterContext {
@@ -50,6 +53,7 @@ pub fn generate_interpreter_context() -> InterpreterContext {
     let four = Rc::new(Noun::Atom(big_uints.four.clone()));
     let sig_one = cell(&sig, &one);
     let two_three = cell(&two, &three);
+    let memo = Rc::new(Noun::from_bytes(b"memo"));
     InterpreterContext {
         jets,
         double_jets,
@@ -63,8 +67,10 @@ pub fn generate_interpreter_context() -> InterpreterContext {
             four,
             sig_one,
             two_three,
+            memo,
         },
         big_uints,
+        memo: BTreeMap::new(),
     }
 }
 
@@ -172,15 +178,15 @@ fn hax(
 }
 
 fn tar_u32<'a>(
-    ctx: &InterpreterContext,
-    subj: &'a Noun,
+    ctx: &mut InterpreterContext,
+    subj: Rc<Noun>,
     op: u32,
     formula: &'a Rc<Noun>,
 ) -> Option<Rc<Noun>> {
     match op {
         0 => {
             let b = formula.as_atom()?;
-            fas(ctx, b, subj)
+            fas(ctx, b, &*subj)
         }
         1 => Some(formula.clone()),
         2 => {
@@ -196,16 +202,16 @@ fn tar_u32<'a>(
                     match ctx.jets.get(&hash) {
                         Some(f) => f(ctx, sample),
                         None => {
-                            let foo = tar(ctx, subj, &b)?;
+                            let foo = tar(ctx, subj.clone(), &b)?;
                             let bar = tar(ctx, subj, &c)?;
-                            tar(ctx, &foo, &bar)
+                            tar(ctx, foo, &bar)
                         }
                     }
                 }
                 _ => {
-                    let foo = tar(ctx, &subj, &b)?;
-                    let bar = tar(ctx, &subj, &c)?;
-                    tar(ctx, &foo, &bar)
+                    let foo = tar(ctx, subj.clone(), &b)?;
+                    let bar = tar(ctx, subj, &c)?;
+                    tar(ctx, foo, &bar)
                 }
             }
         }
@@ -219,7 +225,7 @@ fn tar_u32<'a>(
         }
         5 => {
             let (b, c) = formula.as_cell()?;
-            let foo = tar(ctx, &subj, &b)?;
+            let foo = tar(ctx, subj.clone(), &b)?;
             let bar = tar(ctx, subj, &c)?;
             Some(tis(ctx, &foo, &bar).clone())
         }
@@ -227,36 +233,29 @@ fn tar_u32<'a>(
             let (b, c) = formula.as_cell()?;
             let (c, d) = c.as_cell()?;
 
-            let foo = tar_u32(
-                ctx,
-                &cell(&c, &d),
-                0,
-                &tar_u32(
-                    ctx,
-                    &ctx.nouns.two_three,
-                    0,
-                    &tar_u32(ctx, subj, 4, &cell(&ctx.nouns.four, &b))?,
-                )?,
-            )?;
+            let bar = tar_u32(ctx, subj.clone(), 4, &cell(&ctx.nouns.four.clone(), &b))?;
 
-            tar(ctx, &subj, &foo)
+            let foo = tar_u32(ctx, ctx.nouns.two_three.clone(), 0, &bar)?;
+            let foo = tar_u32(ctx, cell(&c, &d), 0, &foo)?;
+
+            tar(ctx, subj, &foo)
         }
         7 => {
             let (b, c) = formula.as_cell()?;
             let foo = tar(ctx, subj, &b)?;
-            tar(ctx, &foo, &c)
+            tar(ctx, foo, &c)
         }
         8 => {
             let (b, c) = formula.as_cell()?;
-            let foo = tar(ctx, &subj, &b)?;
-            tar(ctx, &cell(&foo, &Rc::new(subj.clone())), &c)
+            let foo = tar(ctx, subj.clone(), &b)?;
+            tar(ctx, cell(&foo, &subj), &c)
         }
         9 => {
             let (b, c) = formula.as_cell()?;
-            let foo = tar(ctx, &subj, &c)?;
+            let foo = tar(ctx, subj, &c)?;
             tar_u32(
                 ctx,
-                &foo,
+                foo,
                 2,
                 &cell(&ctx.nouns.sig_one, &cell(&ctx.nouns.sig, &b)),
             )
@@ -266,17 +265,33 @@ fn tar_u32<'a>(
             let (b, c) = b.as_cell()?;
             let b = b.as_atom()?;
 
-            hax(ctx, b, &tar(ctx, subj, &c)?, &tar(ctx, subj, &d)?)
+            let foo = tar(ctx, subj.clone(), &c)?;
+            let bar = tar(ctx, subj, &d)?;
+            hax(ctx, b, &foo, &bar)
         }
         11 => {
             let (b, d) = formula.as_cell()?;
-            // println!("{b}");
             match b.borrow() {
                 Noun::Atom(_) => tar(ctx, subj, &d),
-                Noun::Cell { q: c, .. } => {
-                    let foo = tar(ctx, subj, &c)?;
-                    let bar = tar(ctx, subj, &d)?;
-                    tar_u32(ctx, &cell(&foo, &bar), 0, &ctx.nouns.three)
+                Noun::Cell { p, q, .. } => {
+                    if *p == ctx.nouns.memo {
+                        let hash = cell(&subj, formula).hash();
+                        match ctx.memo.get(&hash) {
+                            Some(target) => Some(target.clone()),
+                            None => {
+                                let foo = cell(
+                                    &tar(ctx, subj.clone(), &q)?,
+                                    &tar(ctx, subj.clone(), &d)?,
+                                );
+                                let target = tar_u32(ctx, foo, 0, &ctx.nouns.three.clone())?;
+                                ctx.memo.insert(hash, target.clone());
+                                Some(target)
+                            }
+                        }
+                    } else {
+                        let foo = cell(&tar(ctx, subj.clone(), &q)?, &tar(ctx, subj.clone(), &d)?);
+                        tar_u32(ctx, foo, 0, &ctx.nouns.three.clone())
+                    }
                 }
             }
         }
@@ -284,11 +299,15 @@ fn tar_u32<'a>(
     }
 }
 
-pub fn tar<'a>(ctx: &InterpreterContext, subj: &'a Noun, formula: &'a Noun) -> Option<Rc<Noun>> {
+pub fn tar<'a>(
+    ctx: &mut InterpreterContext,
+    subj: Rc<Noun>,
+    formula: &'a Noun,
+) -> Option<Rc<Noun>> {
     let (op, formula) = formula.as_cell()?;
     match op.borrow() {
         Noun::Cell { .. } => {
-            let foo = tar(ctx, subj, &op)?;
+            let foo = tar(ctx, subj.clone(), &op)?;
             let bar = tar(ctx, subj, &formula)?;
             Some(cell(&foo, &bar))
         }
@@ -305,27 +324,27 @@ pub fn tar<'a>(ctx: &InterpreterContext, subj: &'a Noun, formula: &'a Noun) -> O
     }
 }
 
-pub fn eval_gate(ctx: &InterpreterContext, gate_factory: &Rc<Noun>) -> Option<Rc<Noun>> {
-    let pulled_gate = tar(ctx, &ctx.nouns.sig, &gate_factory)?;
-    eval_pulled_gate(ctx, &pulled_gate)
+pub fn eval_gate(ctx: &mut InterpreterContext, gate_factory: &Rc<Noun>) -> Option<Rc<Noun>> {
+    let pulled_gate = tar(ctx, ctx.nouns.sig.clone(), &gate_factory)?;
+    eval_pulled_gate(ctx, pulled_gate)
 }
 
 pub fn slam(
-    ctx: &InterpreterContext,
+    ctx: &mut InterpreterContext,
     gate_factory: &Rc<Noun>,
     sample: &Rc<Noun>,
 ) -> Option<Rc<Noun>> {
-    let gate = tar(ctx, &ctx.nouns.sig, &gate_factory)?;
+    let gate = tar(ctx, ctx.nouns.sig.clone(), &gate_factory)?;
 
-    eval_pulled_gate(ctx, &replace_sample(&gate, sample)?)
+    eval_pulled_gate(ctx, replace_sample(&gate, sample)?)
 }
 
 /// This is useful for evaluaing gates produced by running `.foo/nock gate-name` in the dojo.
 /// Also for calling gates from within jets.
-pub fn eval_pulled_gate(ctx: &InterpreterContext, gate: &Rc<Noun>) -> Option<Rc<Noun>> {
+pub fn eval_pulled_gate(ctx: &mut InterpreterContext, gate: Rc<Noun>) -> Option<Rc<Noun>> {
     tar(
         ctx,
-        &gate,
+        gate,
         &cell(
             &Rc::new(Noun::Atom(BigUint::new(vec![9]))),
             &cell(&ctx.nouns.two, &cell(&ctx.nouns.sig, &ctx.nouns.one)),
@@ -336,11 +355,11 @@ pub fn eval_pulled_gate(ctx: &InterpreterContext, gate: &Rc<Noun>) -> Option<Rc<
 /// This is useful for evaluaing gates produced by running `.foo/nock gate-name` in the dojo.
 /// Also for calling gates from within jets.
 pub fn slam_pulled_gate(
-    ctx: &InterpreterContext,
+    ctx: &mut InterpreterContext,
     gate: &Rc<Noun>,
     sample: &Rc<Noun>,
 ) -> Option<Rc<Noun>> {
-    eval_pulled_gate(ctx, &replace_sample(gate, sample)?)
+    eval_pulled_gate(ctx, replace_sample(gate, sample)?)
 }
 
 pub fn replace_sample(gate: &Rc<Noun>, sample: &Rc<Noun>) -> Option<Rc<Noun>> {

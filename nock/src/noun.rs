@@ -4,9 +4,12 @@ use num_bigint::BigUint;
 use std::fmt;
 use xxhash_rust::xxh3::xxh3_128;
 
+use crate::jets::mum;
+
 pub type Atom = BigUint;
 
 pub type Hash = u128;
+pub type Mug = u32;
 
 #[derive(Clone, Debug, Eq)]
 pub enum Noun {
@@ -15,6 +18,7 @@ pub enum Noun {
         p: Rc<Noun>,
         q: Rc<Noun>,
         hash: Cell<Option<Hash>>,
+        mug: Cell<Option<Mug>>,
     },
 }
 
@@ -126,8 +130,8 @@ impl<'a> Noun {
 
     pub fn hash(self: &Self) -> Hash {
         match self {
-            Noun::Cell { hash, p, q } => match hash.get() {
-                Some(x) => x.clone(),
+            Noun::Cell { hash, p, q, .. } => match hash.get() {
+                Some(x) => x,
                 None => {
                     let hash_value =
                         stacker::maybe_grow(32 * 1024, 1024 * 1024, || hash_pair(p, q));
@@ -136,6 +140,22 @@ impl<'a> Noun {
                 }
             },
             Noun::Atom(a) => xxh3_128(&*a.to_bytes_le()),
+        }
+    }
+
+    pub fn mug(self: &Self) -> Mug {
+        match self {
+            Noun::Cell { mug, p, q, .. } => match mug.get() {
+                Some(x) => x,
+                None => {
+                    let mug_value = stacker::maybe_grow(32 * 1024, 1024 * 1024, || {
+                        mum(0xDEADBEEF, 0xFFFE, &Atom::new(vec![p.mug(), q.mug()]))
+                    });
+                    mug.replace(Some(mug_value));
+                    mug_value
+                }
+            },
+            Self::Atom(a) => mum(0xCAFEBABE, 0x7FFF, a),
         }
     }
 
@@ -323,7 +343,7 @@ fn write_noun(f: &mut fmt::Formatter, noun: &Noun, is_rhs: bool) -> fmt::Result 
         }
         Noun::Atom(a) => {
             let atom_bytes = a.to_bytes_le();
-            if atom_bytes.len() > 1 && atom_bytes.into_iter().all(|c| (c > 33) && c < 126) {
+            if atom_bytes.len() > 0 && atom_bytes.into_iter().all(|c| (c > 33) && c < 126) {
                 f.write_char('%')?;
                 let cord = unsafe { String::from_utf8_unchecked(a.to_bytes_le()) };
                 f.write_str(&*cord)
@@ -355,6 +375,7 @@ pub fn naked_cell(p: &Rc<Noun>, q: &Rc<Noun>) -> Noun {
         p: p.clone(),
         q: q.clone(),
         hash: Cell::new(None),
+        mug: Cell::new(None),
     }
 }
 

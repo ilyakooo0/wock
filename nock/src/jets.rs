@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::{
-    interpreter::{slam, slam_pulled_gate, InterpreterContext},
+    interpreter::{slam_pulled_gate, InterpreterContext},
     noun::{self, cell, Atom, Edge, Hair, Nail, Noun},
 };
 
@@ -104,11 +104,12 @@ pub fn generate_jets() -> Jets {
         (3482046397915506566435874021936376320, LAST),
         (124976064672625230427889101290245200507, TRIP),
         (4078279288073906183633157465551067635, MUK),
+        (261900159748071234702685239353558471892, MUG),
     ])
 }
 
-pub type Jet = fn(ctx: &InterpreterContext, &Rc<Noun>) -> Option<Rc<Noun>>;
-pub type DoubleJet = fn(ctx: &InterpreterContext, &Rc<Noun>, &Rc<Noun>) -> Option<Rc<Noun>>;
+pub type Jet = fn(ctx: &mut InterpreterContext, &Rc<Noun>) -> Option<Rc<Noun>>;
+pub type DoubleJet = fn(ctx: &mut InterpreterContext, &Rc<Noun>, &Rc<Noun>) -> Option<Rc<Noun>>;
 
 static BINARY_ATOM: fn(&Rc<Noun>, fn(&Atom, &Atom) -> Atom) -> Option<Rc<Noun>> =
     |n: &Rc<Noun>, f: fn(&Atom, &Atom) -> Atom| {
@@ -941,16 +942,7 @@ static MUK: Jet = |_ctx, n| {
     let len = len.as_u32()?;
     let key = key.as_atom()?;
 
-    let key: Vec<_> = key
-        .to_bytes_le()
-        .iter()
-        .take(len as usize)
-        .cloned()
-        .collect();
-
-    Some(Rc::new(Noun::from_u32(
-        murmur3_32(&mut &*key, seed).unwrap(),
-    )))
+    Some(Rc::new(Noun::from_u32(muk(seed, len, key))))
 };
 
 static JUST: DoubleJet = |ctx, n, m| {
@@ -1012,4 +1004,36 @@ fn fail(nail: Nail) -> Edge {
         hair: nail.hair,
         result: None,
     }
+}
+
+const MUG: Jet = |__ctx, n| Some(Rc::new(Noun::from_u32(n.mug())));
+
+pub fn mum(syd: u32, fal: u32, key: &Atom) -> u32 {
+    let wyd = met(3, &key);
+    let mut i = 0;
+    loop {
+        if i == 8 {
+            break fal;
+        } else {
+            let haz = muk(syd, wyd, &key);
+            let ham = (haz >> 31) ^ (haz & !(1 << 31));
+            if ham == 0 {
+                i += 1;
+                continue;
+            } else {
+                break ham;
+            }
+        }
+    }
+}
+
+fn muk(seed: u32, len: u32, key: &Atom) -> u32 {
+    let key: Vec<_> = key
+        .to_bytes_le()
+        .iter()
+        .take(len as usize)
+        .cloned()
+        .collect();
+
+    murmur3_32(&mut &*key, seed).unwrap()
 }

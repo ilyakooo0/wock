@@ -1,5 +1,5 @@
 use clap::{command, error::Result, Parser, Subcommand};
-use nock::interpreter::{eval_gate, eval_pulled_gate, slam_pulled_gate};
+use nock::interpreter::{eval_pulled_gate, slam_pulled_gate};
 use nock::{
     cue::cue_bytes,
     interpreter::{generate_interpreter_context, slam},
@@ -90,15 +90,15 @@ fn main() -> Result<(), std::io::Error> {
         NockCommand::EvalGate { gate } => {
             let gate = read_nock(&gate).unwrap();
 
-            let result = eval_pulled_gate(&generate_interpreter_context(), &gate).unwrap();
+            let result = eval_pulled_gate(&mut generate_interpreter_context(), gate).unwrap();
 
             println!("{result}");
         }
         NockCommand::Eval { nock } => {
             let nock = read_nock(&nock).unwrap();
 
-            let ctx = generate_interpreter_context();
-            let result = eval_pulled_gate(&ctx, &nock).unwrap();
+            let mut ctx = generate_interpreter_context();
+            let result = eval_pulled_gate(&mut ctx, nock).unwrap();
 
             println!("{result}");
         }
@@ -118,7 +118,7 @@ fn interact(gate_file: PathBuf) -> Result<(), std::io::Error> {
     let source = get_stdin().unwrap();
 
     let mut spinner = new_spinner(String::from("Slamming gate..."));
-    let Some(slam) = slam(&generate_interpreter_context(), &gate, &source) else {
+    let Some(slam) = slam(&mut generate_interpreter_context(), &gate, &source) else {
         spinner.fail("Gate execution failed");
         exit(1);
     };
@@ -163,7 +163,7 @@ fn compile(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
         let root_source = read_file(&root)?;
 
         slam_pulled_gate(
-            &generate_interpreter_context(),
+            &mut generate_interpreter_context(),
             &ream_gate,
             &Rc::new(Noun::Atom(Atom::from_bytes_le(&root_source))),
         )
@@ -185,7 +185,7 @@ fn compile(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
 
     let mint_gate = cue_bytes(include_bytes!("../res/mint.nock"));
     let minted_ast =
-        slam_pulled_gate(&generate_interpreter_context(), &mint_gate, &root_ast).unwrap();
+        slam_pulled_gate(&mut generate_interpreter_context(), &mint_gate, &ast).unwrap();
     let (_type, nock) = minted_ast.as_cell().unwrap();
 
     let mut output_file = File::create(output)?;
