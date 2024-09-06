@@ -44,10 +44,6 @@ enum NockCommand {
         #[arg(value_name = "FILE.nock")]
         gate: PathBuf,
     },
-    EvalGate {
-        #[arg(value_name = "FILE.nock")]
-        gate: PathBuf,
-    },
     Eval {
         #[arg(value_name = "FILE.nock")]
         nock: PathBuf,
@@ -86,13 +82,6 @@ fn main() -> Result<(), std::io::Error> {
             let (hash, _sample_1, _sample_2) = gate.hash_double_gate();
 
             println!("{hash}");
-        }
-        NockCommand::EvalGate { gate } => {
-            let gate = read_nock(&gate).unwrap();
-
-            let result = eval_pulled_gate(&mut generate_interpreter_context(), gate).unwrap();
-
-            println!("{result}");
         }
         NockCommand::Eval { nock } => {
             let nock = read_nock(&nock).unwrap();
@@ -155,40 +144,41 @@ fn new_spinner(txt: String) -> Spinner {
 }
 
 fn compile(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
-    println!("reaming");
-    let root_ast = {
-        let ream_nock = include_bytes!("../res/ream.nock");
-        let ream_gate = cue_bytes(ream_nock);
+    let mut spinner = new_spinner(format!("Loading Hoon compiler"));
 
-        let root_source = read_file(&root)?;
+    let mut ctx = generate_interpreter_context();
 
-        slam_pulled_gate(
-            &mut generate_interpreter_context(),
-            &ream_gate,
+    let hoon_nock = cue_bytes(include_bytes!("../res/hoon.nock"));
+    let (hoon_type, hoon) = hoon_nock.as_cell().unwrap();
+    let ride = cue_bytes(include_bytes!("../res/ride.nock"));
+    let comb = cue_bytes(include_bytes!("../res/comb.nock"));
+
+    spinner.update_text(format!("Compiling {root:#?}"));
+
+    let root_source = read_file(&root)?;
+
+    let target = slam_pulled_gate(
+        &mut ctx,
+        &ride,
+        &cell(
+            hoon_type,
             &Rc::new(Noun::Atom(Atom::from_bytes_le(&root_source))),
-        )
-        .unwrap()
-    };
+        ),
+    )
+    .unwrap();
 
-    println!("Loading hoon/hoon");
+    let (_target_type, target_nock) = target.as_cell().unwrap();
 
-    let ast = {
-        let hoon_hoon_ast_nock = include_bytes!("../res/hoon-hoon-ast.nock");
-        let hoon_hoon_ast = cue_bytes(hoon_hoon_ast_nock);
-        cell(
-            &Rc::new(Noun::Atom(Atom::from_bytes_le(b"tsgl"))),
-            &cell(&hoon_hoon_ast, &root_ast),
-        )
-    };
+    spinner.update_text(format!("Combining Nock formulas"));
 
-    println!("minting");
+    let nock = slam_pulled_gate(&mut ctx, &comb, &cell(hoon, target_nock)).unwrap();
 
-    let mint_gate = cue_bytes(include_bytes!("../res/mint.nock"));
-    let minted_ast =
-        slam_pulled_gate(&mut generate_interpreter_context(), &mint_gate, &ast).unwrap();
-    let (_type, nock) = minted_ast.as_cell().unwrap();
+    spinner.update_text(format!("Writing output to {output:#?}"));
 
-    let mut output_file = File::create(output)?;
-    File::write_all(&mut output_file, &jam_to_bytes(nock)).unwrap();
+    let mut output_file = File::create(output.clone())?;
+    File::write_all(&mut output_file, &jam_to_bytes(&nock)).unwrap();
+
+    spinner.success(&*format!("Compiled {output:#?} successfully"));
+
     Ok(())
 }
