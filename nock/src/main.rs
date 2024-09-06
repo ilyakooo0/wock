@@ -1,5 +1,5 @@
 use clap::{command, error::Result, Parser, Subcommand};
-use nock::interpreter::{eval_pulled_gate, slam_pulled_gate};
+use nock::interpreter::{eval_pulled_gate, slam_pulled_gate, tar};
 use nock::{
     cue::cue_bytes,
     interpreter::{generate_interpreter_context, slam},
@@ -87,7 +87,8 @@ fn main() -> Result<(), std::io::Error> {
             let nock = read_nock(&nock).unwrap();
 
             let mut ctx = generate_interpreter_context();
-            let result = eval_pulled_gate(&mut ctx, nock).unwrap();
+            let sig = ctx.nouns.sig.clone();
+            let result = tar(&mut ctx, sig, &nock).unwrap();
 
             println!("{result}");
         }

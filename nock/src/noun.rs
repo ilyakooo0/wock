@@ -343,7 +343,7 @@ fn write_noun(f: &mut fmt::Formatter, noun: &Noun, is_rhs: bool) -> fmt::Result 
         }
         Noun::Atom(a) => {
             let atom_bytes = a.to_bytes_le();
-            if atom_bytes.len() > 0 && atom_bytes.into_iter().all(|c| (c > 33) && c < 126) {
+            if atom_bytes.len() > 1 && atom_bytes.into_iter().all(|c| (c > 33) && c < 126) {
                 f.write_char('%')?;
                 let cord = unsafe { String::from_utf8_unchecked(a.to_bytes_le()) };
                 f.write_str(&*cord)
