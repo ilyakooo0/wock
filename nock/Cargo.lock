@@ -246,6 +246,7 @@ dependencies = [
  "stacker",
  "wasm-bindgen",
  "wasm-bindgen-test",
+ "web-sys",
  "xxhash-rust",
 ]
 

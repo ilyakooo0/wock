@@ -28,6 +28,7 @@ bit-vec = "0.8.0"
 bitvec = "1.0.1"
 stacker = "0.1.17"
 murmur3 = "0.5.2"
+web-sys = "0.3.70"
 
 [dependencies.xxhash-rust]
 version = "0.8.5"

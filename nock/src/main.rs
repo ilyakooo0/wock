@@ -1,5 +1,5 @@
 use clap::{command, error::Result, Parser, Subcommand};
-use nock::interpreter::{eval_pulled_gate, slam_pulled_gate, tar};
+use nock::interpreter::{eval_pulled_gate, slam_pulled_gate, tar, InterpreterContext};
 use nock::{
     cue::cue_bytes,
     interpreter::{generate_interpreter_context, slam},
@@ -7,6 +7,7 @@ use nock::{
     noun::{cell, Atom, Noun},
 };
 use spinoff::Spinner;
+use std::str::FromStr;
 use std::{
     fs::File,
     io::{stdin, stdout, Read, Write},
@@ -84,9 +85,10 @@ fn main() -> Result<(), std::io::Error> {
             println!("{hash}");
         }
         NockCommand::Eval { nock } => {
-            let nock = read_nock(&nock).unwrap();
-
             let mut ctx = generate_interpreter_context();
+
+            let nock = read_nock_or_compile(&mut ctx, nock)?;
+
             let sig = ctx.nouns.sig.clone();
             let result = tar(&mut ctx, sig, &nock).unwrap();
 
@@ -149,6 +151,23 @@ fn compile(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
 
     let mut ctx = generate_interpreter_context();
 
+    let nock = compile_to_nock(&mut ctx, &mut spinner, root)?;
+
+    spinner.update_text(format!("Writing output to {output:#?}"));
+
+    let mut output_file = File::create(output.clone())?;
+    File::write_all(&mut output_file, &jam_to_bytes(&nock)).unwrap();
+
+    spinner.success(&*format!("Compiled {output:#?} successfully"));
+
+    Ok(())
+}
+
+fn compile_to_nock(
+    ctx: &mut InterpreterContext,
+    spinner: &mut Spinner,
+    root: PathBuf,
+) -> Result<Rc<Noun>, std::io::Error> {
     let hoon_nock = cue_bytes(include_bytes!("../res/hoon.nock"));
     let (hoon_type, hoon) = hoon_nock.as_cell().unwrap();
     let ride = cue_bytes(include_bytes!("../res/ride.nock"));
@@ -159,7 +178,7 @@ fn compile(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
     let root_source = read_file(&root)?;
 
     let target = slam_pulled_gate(
-        &mut ctx,
+        ctx,
         &ride,
         &cell(
             hoon_type,
@@ -172,14 +191,19 @@ fn compile(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
 
     spinner.update_text(format!("Combining Nock formulas"));
 
-    let nock = slam_pulled_gate(&mut ctx, &comb, &cell(hoon, target_nock)).unwrap();
+    Ok(slam_pulled_gate(ctx, &comb, &cell(hoon, target_nock)).unwrap())
+}
 
-    spinner.update_text(format!("Writing output to {output:#?}"));
-
-    let mut output_file = File::create(output.clone())?;
-    File::write_all(&mut output_file, &jam_to_bytes(&nock)).unwrap();
-
-    spinner.success(&*format!("Compiled {output:#?} successfully"));
-
-    Ok(())
+fn read_nock_or_compile(
+    ctx: &mut InterpreterContext,
+    path: PathBuf,
+) -> Result<Rc<Noun>, std::io::Error> {
+    if path.extension().and_then(|x| x.to_str()) == Some("hoon") {
+        let mut spinner = new_spinner(String::new());
+        let nock = compile_to_nock(ctx, &mut spinner, path.clone())?;
+        spinner.success(&*format!("Compiled {path:#?} successfully"));
+        Ok(nock)
+    } else {
+        read_nock(&path)
+    }
 }
