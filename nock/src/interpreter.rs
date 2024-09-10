@@ -2,6 +2,9 @@ use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
+use bitvec::prelude;
+use fplist::cons;
+use fplist::PersistentList;
 use num_bigint::BigUint;
 
 use crate::jets::*;
@@ -18,6 +21,7 @@ pub struct Nouns {
     pub sig_one: Rc<Noun>,
     pub two_three: Rc<Noun>,
     pub memo: Rc<Noun>,
+    pub mean: Rc<Noun>,
 }
 
 pub struct BigUints {
@@ -54,6 +58,7 @@ pub fn generate_interpreter_context() -> InterpreterContext {
     let sig_one = cell(&sig, &one);
     let two_three = cell(&two, &three);
     let memo = Rc::new(Noun::from_bytes(b"memo"));
+    let mean = Rc::new(Noun::from_bytes(b"mean"));
     InterpreterContext {
         jets,
         double_jets,
@@ -68,6 +73,7 @@ pub fn generate_interpreter_context() -> InterpreterContext {
             sig_one,
             two_three,
             memo,
+            mean,
         },
         big_uints,
         memo: BTreeMap::new(),
@@ -81,10 +87,10 @@ fn wut<'a>(ctx: &'a InterpreterContext, noun: &Noun) -> &'a Rc<Noun> {
     }
 }
 
-fn lus(noun: &Noun) -> Option<Noun> {
+fn lus(noun: &Noun) -> Result<Noun, Tanks> {
     match noun {
-        Noun::Cell { .. } => None,
-        Noun::Atom(atm) => Some(Noun::Atom(atm + 1u32)),
+        Noun::Cell { .. } => Err(PersistentList::new()),
+        Noun::Atom(atm) => Ok(Noun::Atom(atm + 1u32)),
     }
 }
 
@@ -96,15 +102,15 @@ fn tis<'a>(ctx: &'a InterpreterContext, lhs: &Noun, rhs: &Noun) -> &'a Rc<Noun> 
     }
 }
 
-fn fas(ctx: &InterpreterContext, addr: &Atom, noun: &Noun) -> Option<Rc<Noun>> {
+fn fas(ctx: &InterpreterContext, addr: &Atom, noun: &Noun) -> Result<Rc<Noun>, Tanks> {
     let mut addr_iter = addr.iter_u32_digits();
 
     match (addr_iter.next(), addr_iter.next()) {
-        (None, _) => None,
+        (None, _) => Err(PersistentList::new()),
         (Some(x), None) => fas_u32(x, noun),
         _ => {
             let rest = fas(ctx, &(addr >> 1u8), noun)?;
-            Some(fas_u32(
+            Ok(fas_u32(
                 if (addr & &ctx.big_uints.one) == ctx.big_uints.one {
                     3
                 } else {
@@ -116,15 +122,15 @@ fn fas(ctx: &InterpreterContext, addr: &Atom, noun: &Noun) -> Option<Rc<Noun>> {
     }
 }
 
-fn fas_u32(addr: u32, noun: &Noun) -> Option<Rc<Noun>> {
+fn fas_u32(addr: u32, noun: &Noun) -> Result<Rc<Noun>, Tanks> {
     match addr {
-        0 => None,
-        1 => Some(Rc::new(noun.clone())),
+        0 => Err(PersistentList::new()),
+        1 => Ok(Rc::new(noun.clone())),
         n => match noun {
-            Noun::Atom(_) => None,
+            Noun::Atom(_) => Err(PersistentList::new()),
             Noun::Cell { p, q, .. } => match n {
-                2 => Some(p.clone()),
-                3 => Some(q.clone()),
+                2 => Ok(p.clone()),
+                3 => Ok(q.clone()),
                 _ => {
                     let rest = fas_u32(n >> 1, &cell(p, q))?;
                     fas_u32(if (n & 1) == 1 { 3 } else { 2 }, &rest)
@@ -134,10 +140,10 @@ fn fas_u32(addr: u32, noun: &Noun) -> Option<Rc<Noun>> {
     }
 }
 
-fn hax_u32(addr: u32, new_value: &Rc<Noun>, target: &Rc<Noun>) -> Option<Rc<Noun>> {
+fn hax_u32(addr: u32, new_value: &Rc<Noun>, target: &Rc<Noun>) -> Result<Rc<Noun>, Tanks> {
     match addr {
-        0 => None,
-        1 => Some(new_value.clone()),
+        0 => Err(PersistentList::new()),
+        1 => Ok(new_value.clone()),
         _ => {
             let new_value = if (addr & 1) == 1 {
                 let foo = fas_u32(addr - 1, &target)?;
@@ -156,11 +162,11 @@ fn hax(
     addr: &Atom,
     new_value: &Rc<Noun>,
     target: &Rc<Noun>,
-) -> Option<Rc<Noun>> {
+) -> Result<Rc<Noun>, Tanks> {
     let mut addr_iter = addr.iter_u32_digits();
 
     match (addr_iter.next(), addr_iter.next()) {
-        (None, _) => None,
+        (None, _) => Err(Tanks::new()),
         (Some(x), None) => hax_u32(x, new_value, target),
         _ => hax(
             ctx,
@@ -182,15 +188,15 @@ fn tar_u32<'a>(
     subj: Rc<Noun>,
     op: u32,
     formula: &'a Rc<Noun>,
-) -> Option<Rc<Noun>> {
+) -> Result<Rc<Noun>, Tanks> {
     match op {
         0 => {
-            let b = formula.as_atom()?;
+            let b = formula.as_atom().ok_or(Tanks::new())?;
             fas(ctx, b, &*subj)
         }
-        1 => Some(formula.clone()),
+        1 => Ok(formula.clone()),
         2 => {
-            let (b, c) = formula.as_cell()?;
+            let (b, c) = formula.as_cell().ok_or(Tanks::new())?;
 
             match c.borrow() {
                 Noun::Cell { p, q, .. }
@@ -217,21 +223,21 @@ fn tar_u32<'a>(
         }
         3 => {
             let foo = tar(ctx, subj, &formula)?;
-            Some(wut(ctx, &foo).clone())
+            Ok(wut(ctx, &foo).clone())
         }
         4 => {
             let foo = tar(ctx, subj, &formula)?;
-            Some(Rc::new(lus(&foo)?))
+            Ok(Rc::new(lus(&foo)?))
         }
         5 => {
-            let (b, c) = formula.as_cell()?;
+            let (b, c) = formula.as_cell().ok_or(Tanks::new())?;
             let foo = tar(ctx, subj.clone(), &b)?;
             let bar = tar(ctx, subj, &c)?;
-            Some(tis(ctx, &foo, &bar).clone())
+            Ok(tis(ctx, &foo, &bar).clone())
         }
         6 => {
-            let (b, c) = formula.as_cell()?;
-            let (c, d) = c.as_cell()?;
+            let (b, c) = formula.as_cell().ok_or(Tanks::new())?;
+            let (c, d) = c.as_cell().ok_or(Tanks::new())?;
 
             let bar = tar_u32(ctx, subj.clone(), 4, &cell(&ctx.nouns.four.clone(), &b))?;
 
@@ -241,17 +247,17 @@ fn tar_u32<'a>(
             tar(ctx, subj, &foo)
         }
         7 => {
-            let (b, c) = formula.as_cell()?;
+            let (b, c) = formula.as_cell().ok_or(Tanks::new())?;
             let foo = tar(ctx, subj, &b)?;
             tar(ctx, foo, &c)
         }
         8 => {
-            let (b, c) = formula.as_cell()?;
+            let (b, c) = formula.as_cell().ok_or(Tanks::new())?;
             let foo = tar(ctx, subj.clone(), &b)?;
             tar(ctx, cell(&foo, &subj), &c)
         }
         9 => {
-            let (b, c) = formula.as_cell()?;
+            let (b, c) = formula.as_cell().ok_or(Tanks::new())?;
             let foo = tar(ctx, subj, &c)?;
             tar_u32(
                 ctx,
@@ -261,55 +267,68 @@ fn tar_u32<'a>(
             )
         }
         10 => {
-            let (b, d) = formula.as_cell()?;
-            let (b, c) = b.as_cell()?;
-            let b = b.as_atom()?;
+            let (b, d) = formula.as_cell().ok_or(Tanks::new())?;
+            let (b, c) = b.as_cell().ok_or(Tanks::new())?;
+            let b = b.as_atom().ok_or(Tanks::new())?;
 
             let foo = tar(ctx, subj.clone(), &c)?;
             let bar = tar(ctx, subj, &d)?;
             hax(ctx, b, &foo, &bar)
         }
         11 => {
-            let (b, d) = formula.as_cell()?;
+            let (b, d) = formula.as_cell().ok_or(Tanks::new())?;
             match b.borrow() {
                 Noun::Atom(_) => tar(ctx, subj, &d),
                 Noun::Cell { p, q, .. } => {
+                    let eval = |ctx: &mut InterpreterContext| tar(ctx, subj.clone(), &d);
                     if *p == ctx.nouns.memo {
-                        let hash = cell(&subj, formula).hash();
+                        let hash = cell(&subj, &d).hash();
                         match ctx.memo.get(&hash) {
-                            Some(target) => Some(target.clone()),
+                            Some(target) => Ok(target.clone()),
                             None => {
-                                let foo = cell(
-                                    &tar(ctx, subj.clone(), &q)?,
-                                    &tar(ctx, subj.clone(), &d)?,
-                                );
-                                let target = tar_u32(ctx, foo, 0, &ctx.nouns.three.clone())?;
+                                let target = eval(ctx)?;
                                 ctx.memo.insert(hash, target.clone());
-                                Some(target)
+                                Ok(target)
                             }
                         }
+                    } else if *p == ctx.nouns.mean {
+                        let gate = tar(ctx, subj.clone(), q)?;
+                        let trace = eval_pulled_gate(ctx, gate)?;
+                        with_trace(trace, eval(ctx))
                     } else {
-                        let foo = cell(&tar(ctx, subj.clone(), &q)?, &tar(ctx, subj.clone(), &d)?);
-                        tar_u32(ctx, foo, 0, &ctx.nouns.three.clone())
+                        eval(ctx)
                     }
                 }
             }
         }
-        _ => None,
+        _ => Err(Tanks::new()),
     }
 }
+
+fn with_trace<T>(tank: Tank, src: Result<T, Tanks>) -> Result<T, Tanks> {
+    println!("{tank}");
+    match src {
+        Ok(a) => Ok(a),
+        Err(tanks) => Err(cons(tank, tanks)),
+    }
+}
+
+pub type Tank = Rc<Noun>;
+pub type Tanks = PersistentList<Tank>;
+
+pub const EMPTY_TANKS: Tanks = Tanks::new();
 
 pub fn tar<'a>(
     ctx: &mut InterpreterContext,
     subj: Rc<Noun>,
     formula: &'a Noun,
-) -> Option<Rc<Noun>> {
-    let (op, formula) = formula.as_cell()?;
+) -> Result<Rc<Noun>, Tanks> {
+    let (op, formula) = formula.as_cell().ok_or(Tanks::new())?;
     match op.borrow() {
         Noun::Cell { .. } => {
             let foo = tar(ctx, subj.clone(), &op)?;
             let bar = tar(ctx, subj, &formula)?;
-            Some(cell(&foo, &bar))
+            Ok(cell(&foo, &bar))
         }
         Noun::Atom(ref op) => {
             let mut op_iter = op.iter_u32_digits();
@@ -318,13 +337,13 @@ pub fn tar<'a>(
                 1 => Some(op_iter.next().unwrap()),
                 _ => None,
             };
-            let op = op?;
+            let op = op.ok_or(Tanks::new())?;
             stacker::maybe_grow(32 * 1024, 1024 * 1024, || tar_u32(ctx, subj, op, formula))
         }
     }
 }
 
-pub fn eval_gate(ctx: &mut InterpreterContext, gate_factory: &Rc<Noun>) -> Option<Rc<Noun>> {
+pub fn eval_gate(ctx: &mut InterpreterContext, gate_factory: &Rc<Noun>) -> Result<Rc<Noun>, Tanks> {
     let pulled_gate = tar(ctx, ctx.nouns.sig.clone(), &gate_factory)?;
     eval_pulled_gate(ctx, pulled_gate)
 }
@@ -333,7 +352,7 @@ pub fn slam(
     ctx: &mut InterpreterContext,
     gate_factory: &Rc<Noun>,
     sample: &Rc<Noun>,
-) -> Option<Rc<Noun>> {
+) -> Result<Rc<Noun>, Tanks> {
     let gate = tar(ctx, ctx.nouns.sig.clone(), &gate_factory)?;
 
     eval_pulled_gate(ctx, replace_sample(&gate, sample)?)
@@ -341,7 +360,7 @@ pub fn slam(
 
 /// This is useful for evaluaing gates produced by running `.foo/nock gate-name` in the dojo.
 /// Also for calling gates from within jets.
-pub fn eval_pulled_gate(ctx: &mut InterpreterContext, gate: Rc<Noun>) -> Option<Rc<Noun>> {
+pub fn eval_pulled_gate(ctx: &mut InterpreterContext, gate: Rc<Noun>) -> Result<Rc<Noun>, Tanks> {
     tar(
         ctx,
         gate,
@@ -358,13 +377,13 @@ pub fn slam_pulled_gate(
     ctx: &mut InterpreterContext,
     gate: &Rc<Noun>,
     sample: &Rc<Noun>,
-) -> Option<Rc<Noun>> {
+) -> Result<Rc<Noun>, Tanks> {
     eval_pulled_gate(ctx, replace_sample(gate, sample)?)
 }
 
-pub fn replace_sample(gate: &Rc<Noun>, sample: &Rc<Noun>) -> Option<Rc<Noun>> {
-    let (battery, payload) = gate.as_cell()?;
-    let (_sample, context) = payload.as_cell()?;
+pub fn replace_sample(gate: &Rc<Noun>, sample: &Rc<Noun>) -> Result<Rc<Noun>, Tanks> {
+    let (battery, payload) = gate.as_cell().ok_or(Tanks::new())?;
+    let (_sample, context) = payload.as_cell().ok_or(Tanks::new())?;
 
-    Some(cell(battery, &cell(sample, context)))
+    Ok(cell(battery, &cell(sample, context)))
 }

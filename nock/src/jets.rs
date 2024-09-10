@@ -8,18 +8,20 @@ use std::{
 };
 
 use crate::{
-    interpreter::{slam_pulled_gate, InterpreterContext},
+    interpreter::{slam_pulled_gate, InterpreterContext, Tanks},
     noun::{self, cell, Atom, Edge, Hair, Nail, Noun},
 };
 
-fn traverse_iter_option<T: Clone, I: Iterator<Item = Option<T>>>(xs: I) -> Option<Vec<T>> {
+fn traverse_iter_result<E: Clone, T: Clone, I: Iterator<Item = Result<T, E>>>(
+    xs: I,
+) -> Result<Vec<T>, E> {
     let mut target: Vec<T> = Vec::new();
 
     for x in xs {
         target.push(x.clone()?)
     }
 
-    Some(target)
+    Ok(target)
 }
 
 pub type Jets = BTreeMap<noun::Hash, Jet>;
@@ -108,39 +110,51 @@ pub fn generate_jets() -> Jets {
     ])
 }
 
-pub type Jet = fn(ctx: &mut InterpreterContext, &Rc<Noun>) -> Option<Rc<Noun>>;
+pub type Jet = fn(ctx: &mut InterpreterContext, &Rc<Noun>) -> Result<Rc<Noun>, Tanks>;
 pub type DoubleJet = fn(ctx: &mut InterpreterContext, &Rc<Noun>, &Rc<Noun>) -> Option<Rc<Noun>>;
 
-static BINARY_ATOM: fn(&Rc<Noun>, fn(&Atom, &Atom) -> Atom) -> Option<Rc<Noun>> =
+static BINARY_ATOM: fn(&Rc<Noun>, fn(&Atom, &Atom) -> Atom) -> Result<Rc<Noun>, Tanks> =
     |n: &Rc<Noun>, f: fn(&Atom, &Atom) -> Atom| {
-        let (p, q) = n.as_cell()?;
-        Some(Rc::new(Noun::Atom(f(p.as_atom()?, q.as_atom()?))))
+        let (p, q) = n.as_cell().ok_or(Tanks::new())?;
+        Ok(Rc::new(Noun::Atom(f(
+            p.as_atom().ok_or(Tanks::new())?,
+            q.as_atom().ok_or(Tanks::new())?,
+        ))))
     };
 
 static BINARY_ATOM_LOOB: fn(
     &InterpreterContext,
     &Rc<Noun>,
     fn(&Atom, &Atom) -> bool,
-) -> Option<Rc<Noun>> = |ctx: &InterpreterContext, n: &Rc<Noun>, f: fn(&Atom, &Atom) -> bool| {
-    let (p, q) = n.as_cell()?;
+) -> Result<Rc<Noun>, Tanks> =
+    |ctx: &InterpreterContext, n: &Rc<Noun>, f: fn(&Atom, &Atom) -> bool| {
+        let (p, q) = n.as_cell().ok_or(Tanks::new())?;
 
-    if f(p.as_atom()?, q.as_atom()?) {
-        Some(ctx.nouns.sig.clone())
-    } else {
-        Some(ctx.nouns.one.clone())
-    }
-};
-
-static BINARY_ATOM_PAIR: fn(&Rc<Noun>, fn(&Atom, &Atom) -> (Atom, Atom)) -> Option<Rc<Noun>> =
-    |n: &Rc<Noun>, f: fn(&Atom, &Atom) -> (Atom, Atom)| {
-        let (p, q) = n.as_cell()?;
-
-        let (a, b) = f(p.as_atom()?, q.as_atom()?);
-        Some(cell(&Rc::new(Noun::Atom(a)), &Rc::new(Noun::Atom(b))))
+        if f(
+            p.as_atom().ok_or(Tanks::new())?,
+            q.as_atom().ok_or(Tanks::new())?,
+        ) {
+            Ok(ctx.nouns.sig.clone())
+        } else {
+            Ok(ctx.nouns.one.clone())
+        }
     };
 
+static BINARY_ATOM_PAIR: fn(
+    &Rc<Noun>,
+    fn(&Atom, &Atom) -> (Atom, Atom),
+) -> Result<Rc<Noun>, Tanks> = |n: &Rc<Noun>, f: fn(&Atom, &Atom) -> (Atom, Atom)| {
+    let (p, q) = n.as_cell().ok_or(Tanks::new())?;
+
+    let (a, b) = f(
+        p.as_atom().ok_or(Tanks::new())?,
+        q.as_atom().ok_or(Tanks::new())?,
+    );
+    Ok(cell(&Rc::new(Noun::Atom(a)), &Rc::new(Noun::Atom(b))))
+};
+
 static ADD: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a + b);
-static DEC: Jet = |_ctx, n| Some(Rc::new(Noun::Atom(n.as_atom()? - 1u32)));
+static DEC: Jet = |_ctx, n| Ok(Rc::new(Noun::Atom(n.as_atom().ok_or(Tanks::new())? - 1u32)));
 static DVR: Jet = |_ctx, n| BINARY_ATOM_PAIR(n, |a, b| a.div_rem(&b));
 static DIV: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a / b);
 static GTE: Jet = |ctx, n| BINARY_ATOM_LOOB(ctx, n, |a, b| a >= b);
@@ -154,29 +168,31 @@ static MUL: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a * b);
 static SUB: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a - b);
 
 static CAP: Jet = |ctx, n| {
-    let n = n.as_atom()?;
+    let n = n.as_atom().ok_or(Tanks::new())?;
     CAP_ATOM(ctx, n.clone())
 };
 
-static CAP_ATOM: fn(&InterpreterContext, Atom) -> Option<Rc<Noun>> = |ctx, n: Atom| {
+static CAP_ATOM: fn(&InterpreterContext, Atom) -> Result<Rc<Noun>, Tanks> = |ctx, n: Atom| {
     let mut n_iter = n.iter_u32_digits();
 
     match n_iter.len() {
-        0 => None,
+        0 => Err(Tanks::new()),
         1 => CAP_U32(ctx, n_iter.next().unwrap()),
         _ => CAP_ATOM(ctx, n >> 1),
     }
 };
-static CAP_U32: fn(ctx: &InterpreterContext, u32) -> Option<Rc<Noun>> = |ctx, n| match n {
-    0 | 1 => None,
-    2 => Some(ctx.nouns.two.clone()),
-    3 => Some(ctx.nouns.three.clone()),
+static CAP_U32: fn(ctx: &InterpreterContext, u32) -> Result<Rc<Noun>, Tanks> = |ctx, n| match n {
+    0 | 1 => Err(Tanks::new()),
+    2 => Ok(ctx.nouns.two.clone()),
+    3 => Ok(ctx.nouns.three.clone()),
     n => CAP_U32(ctx, n >> 1),
 };
 
 static MAS: Jet = |ctx, n| {
-    let n = n.as_atom()?;
-    Some(Rc::new(Noun::Atom(MAS_ATOM(ctx, n.clone())?)))
+    let n = n.as_atom().ok_or(Tanks::new())?;
+    Ok(Rc::new(Noun::Atom(
+        MAS_ATOM(ctx, n.clone()).ok_or(Tanks::new())?,
+    )))
 };
 static MAS_ATOM: fn(&InterpreterContext, Atom) -> Option<Atom> = |ctx, n| {
     let mut n_iter = n.iter_u32_digits();
@@ -197,24 +213,24 @@ static MAS_U32: fn(u32) -> u32 = |n| match n {
 };
 
 static PEG: Jet = |ctx, n| {
-    let (a, b) = n.as_cell()?;
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
 
-    let a = a.as_atom()?;
-    let b = b.as_atom()?;
+    let a = a.as_atom().ok_or(Tanks::new())?;
+    let b = b.as_atom().ok_or(Tanks::new())?;
 
     if *a == Atom::ZERO {
-        return None;
+        return Err(Tanks::new());
     };
 
-    Some(Rc::new(Noun::Atom(PEG_ATOM(ctx, a, b.clone())?)))
+    Ok(Rc::new(Noun::Atom(PEG_ATOM(ctx, a, b.clone())?)))
 };
-static PEG_ATOM: fn(&InterpreterContext, &Atom, Atom) -> Option<Atom> = |ctx, a, b| {
+static PEG_ATOM: fn(&InterpreterContext, &Atom, Atom) -> Result<Atom, Tanks> = |ctx, a, b| {
     let mut b_iter = b.iter_u32_digits();
 
     match b_iter.len() {
-        0 => None,
-        1 => Some(PEG_U32(a, b_iter.next().unwrap())),
-        _ => Some((&b & &ctx.big_uints.one) + (PEG_ATOM(ctx, a, b >> 1)? << 1)),
+        0 => Err(Tanks::new()),
+        1 => Ok(PEG_U32(a, b_iter.next().unwrap())),
+        _ => Ok((&b & &ctx.big_uints.one) + (PEG_ATOM(ctx, a, b >> 1)? << 1)),
     }
 };
 static PEG_U32: fn(&Atom, u32) -> Atom = |a, b| match b {
@@ -226,9 +242,9 @@ static PEG_U32: fn(&Atom, u32) -> Atom = |a, b| match b {
 };
 
 static FAND: Jet = |ctx, n| {
-    let (nedl, hstk) = n.as_cell()?;
+    let (nedl, hstk) = n.as_cell().ok_or(Tanks::new())?;
     if nedl.is_sig() || hstk.is_sig() {
-        return Some(ctx.nouns.sig.clone());
+        return Ok(ctx.nouns.sig.clone());
     }
 
     let nedl: Vec<&Rc<Noun>> = nedl.list_iter().collect();
@@ -252,13 +268,13 @@ static FAND: Jet = |ctx, n| {
         inner_iter = iter.clone();
     }
 
-    Some(Noun::list(result.iter().map(|a| Noun::from_u32(*a))))
+    Ok(Noun::list(result.iter().map(|a| Noun::from_u32(*a))))
 };
 
 static FIND: Jet = |ctx, n| {
-    let (nedl, hstk) = n.as_cell()?;
+    let (nedl, hstk) = n.as_cell().ok_or(Tanks::new())?;
     if nedl.is_sig() || hstk.is_sig() {
-        return Some(ctx.nouns.sig.clone());
+        return Ok(ctx.nouns.sig.clone());
     }
 
     let nedl: Vec<&Rc<Noun>> = nedl.list_iter().collect();
@@ -274,30 +290,28 @@ static FIND: Jet = |ctx, n| {
             .collect::<Vec<_>>()
             == nedl
         {
-            return Some(Rc::new(Noun::from_u32(i)).unit());
+            return Ok(Rc::new(Noun::from_u32(i)).unit());
         }
 
         inner_iter = iter.clone();
     }
 
-    return Some(ctx.nouns.sig.clone());
+    return Ok(ctx.nouns.sig.clone());
 };
 
 static FLOP: Jet = |ctx, n| {
-    Some(
-        n.list_iter()
-            .fold(ctx.nouns.sig.clone(), |tail, head| cell(&head, &tail)),
-    )
+    Ok(n.list_iter()
+        .fold(ctx.nouns.sig.clone(), |tail, head| cell(&head, &tail)))
 };
 
 static GULF: Jet = |_ctx, n| {
-    let (from, to) = n.as_cell()?;
+    let (from, to) = n.as_cell().ok_or(Tanks::new())?;
 
-    let mut from = (*from.as_atom()?).clone();
-    let to = to.as_atom()?.clone();
+    let mut from = (*from.as_atom().ok_or(Tanks::new())?).clone();
+    let to = to.as_atom().ok_or(Tanks::new())?.clone();
 
     if from > to {
-        return None;
+        return Err(Tanks::new());
     }
 
     let mut tmp = Vec::new();
@@ -307,105 +321,119 @@ static GULF: Jet = |_ctx, n| {
         from += 1u32;
     }
 
-    Some(Noun::list(tmp.iter().rev().map(|a| Noun::Atom(a.clone()))))
+    Ok(Noun::list(tmp.iter().rev().map(|a| Noun::Atom(a.clone()))))
 };
 
 static INTO: Jet = |_ctx, n| {
-    let (a, b) = n.as_cell()?;
-    let (b, c) = b.as_cell()?;
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
+    let (b, c) = b.as_cell().ok_or(Tanks::new())?;
 
-    let mut b_iter = b.as_atom()?.iter_u32_digits();
+    let mut b_iter = b.as_atom().ok_or(Tanks::new())?.iter_u32_digits();
 
     match b_iter.len() {
-        0 => Some(cell(&c, &a)),
+        0 => Ok(cell(&c, &a)),
         1 => {
             let l = a.list_iter();
             let b = b_iter.next().unwrap() as usize;
-            Some(Noun::list_refs(
+            Ok(Noun::list_refs(
                 l.clone()
                     .take(b)
                     .chain(once(c))
                     .chain(l.skip(b))
                     .collect::<Vec<_>>()
                     .iter()
-                    .map(|x| *x),
+                    .cloned()
+                    .cloned(),
             ))
         }
-        _ => Some(Noun::list_refs(
+        _ => Ok(Noun::list_refs(
             a.list_iter()
                 .chain(once(c))
                 .collect::<Vec<_>>()
                 .iter()
+                .cloned()
                 .cloned(),
         )),
     }
 };
 
 static JOIN: Jet = |_ctx, n| {
-    let (sep, list) = n.as_cell()?;
-    Some(Noun::list_refs(
+    let (sep, list) = n.as_cell().ok_or(Tanks::new())?;
+    Ok(Noun::list_refs(
         list.list_iter()
             .intersperse(sep)
             .collect::<Vec<_>>()
             .iter()
+            .cloned()
             .cloned(),
     ))
 };
 
 static LENT: Jet = |_ctx, n| {
-    Some(Rc::new(Noun::from_u32(
+    Ok(Rc::new(Noun::from_u32(
         n.list_iter().fold(0u32, |l, _| l + 1),
     )))
 };
 
 static LEVY: Jet = |ctx, n| {
-    let (a, b) = n.as_cell()?;
-    if traverse_iter_option(a.list_iter().map(|n| slam_pulled_gate(ctx, b, n)))?
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
+    if traverse_iter_result(a.list_iter().map(|n| slam_pulled_gate(ctx, b, n)))?
         .iter()
         .all(|x| x.is_y())
     {
-        Some(ctx.nouns.y.clone())
+        Ok(ctx.nouns.y.clone())
     } else {
-        Some(ctx.nouns.n.clone())
+        Ok(ctx.nouns.n.clone())
     }
 };
 
 static LIEN: Jet = |ctx, n| {
-    let (a, b) = n.as_cell()?;
-    if traverse_iter_option(a.list_iter().map(|n| slam_pulled_gate(ctx, b, n)))?
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
+    if traverse_iter_result(a.list_iter().map(|n| slam_pulled_gate(ctx, b, n)))?
         .iter()
         .any(|x| x.is_y())
     {
-        Some(ctx.nouns.y.clone())
+        Ok(ctx.nouns.y.clone())
     } else {
-        Some(ctx.nouns.n.clone())
+        Ok(ctx.nouns.n.clone())
     }
 };
 
 static MURN: Jet = |ctx, n| {
-    let (a, b) = n.as_cell()?;
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
 
-    Some(Noun::list_refs(
-        a.list_iter()
-            .filter_map(|n| slam_pulled_gate(ctx, b, n)?.as_unit().cloned())
-            .collect::<Vec<_>>()
-            .iter(),
+    Ok(Noun::list_refs(
+        traverse_iter_result(
+            a.list_iter()
+                .map(|n| Ok(slam_pulled_gate(ctx, b, n)?.as_unit().cloned())),
+        )?
+        .iter()
+        .filter_map(|x| x.clone()),
     ))
 };
 
 static REAP: Jet = |_ctx, n| {
-    let (a, b) = n.as_cell()?;
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
 
-    Some(Noun::list_refs(repeat_n(b, a.as_u32().unwrap() as usize)))
+    Ok(Noun::list_refs(repeat_n(
+        b.clone(),
+        a.as_u32().unwrap() as usize,
+    )))
 };
 
-static REAR: Jet = |_ctx, n| n.list_iter().last().cloned();
+static REAR: Jet = |_ctx, n| n.list_iter().last().ok_or(Tanks::new()).cloned();
 
 static REEL: Jet = |ctx, n| {
-    let (list, gate) = n.as_cell()?;
+    let (list, gate) = n.as_cell().ok_or(Tanks::new())?;
 
     list.list_iter().collect::<Vec<_>>().iter().rfold(
-        Some(gate.gate_sample()?.as_cell()?.1.clone()),
+        Ok(gate
+            .gate_sample()
+            .ok_or(Tanks::new())?
+            .as_cell()
+            .ok_or(Tanks::new())?
+            .1
+            .clone()),
         |acc, next| {
             let acc = acc?;
             slam_pulled_gate(ctx, gate, &cell(&next, &acc))
@@ -414,10 +442,17 @@ static REEL: Jet = |ctx, n| {
 };
 
 static ROLL: Jet = |ctx, n| {
-    let (list, gate) = n.as_cell()?;
+    let (list, gate) = n.as_cell().ok_or(Tanks::new())?;
 
     list.list_iter().fold(
-        Some(gate.clone().gate_sample()?.as_cell()?.1.clone()),
+        Ok(gate
+            .clone()
+            .gate_sample()
+            .ok_or(Tanks::new())?
+            .as_cell()
+            .ok_or(Tanks::new())?
+            .1
+            .clone()),
         |acc, next| {
             let acc = acc?;
             slam_pulled_gate(ctx, gate, &cell(&next, &acc))
@@ -426,105 +461,111 @@ static ROLL: Jet = |ctx, n| {
 };
 
 static SCAG: Jet = |_ctx, n| {
-    let (a, b) = n.as_cell()?;
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
 
-    Some(Noun::list_refs(
+    Ok(Noun::list_refs(
         b.list_iter()
             .take(a.as_u32().unwrap() as usize)
             .collect::<Vec<_>>()
             .iter()
+            .cloned()
             .cloned(),
     ))
 };
 
 static SKID: Jet = |ctx, n| {
-    let (list, gate) = n.as_cell()?;
+    let (list, gate) = n.as_cell().ok_or(Tanks::new())?;
 
-    let slammed_n = traverse_iter_option(
+    let slammed_n = traverse_iter_result(
         list.list_iter()
-            .map(|n| Some((slam_pulled_gate(ctx, gate, n)?, n))),
+            .map(|n| Ok((slam_pulled_gate(ctx, gate, n)?, n))),
     )?;
     let (ys, ns): (Vec<_>, _) = slammed_n.iter().partition(|(l, _)| l.is_y());
 
-    Some(cell(
-        &Noun::list_refs(ys.iter().map(|(_, x)| *x)),
-        &Noun::list_refs(ns.iter().map(|(_, x)| *x)),
+    Ok(cell(
+        &Noun::list_refs(ys.iter().map(|(_, x)| (*x).clone())),
+        &Noun::list_refs(ns.iter().map(|(_, x)| (*x).clone())),
     ))
 };
 
 static SKIM: Jet = |ctx, n| {
-    let (list, gate) = n.as_cell()?;
+    let (list, gate) = n.as_cell().ok_or(Tanks::new())?;
 
-    Some(Noun::list_refs(
-        traverse_iter_option(
+    Ok(Noun::list_refs(
+        traverse_iter_result(
             list.list_iter()
-                .map(|n| Some((slam_pulled_gate(ctx, gate, n)?, n))),
+                .map(|n| Ok((slam_pulled_gate(ctx, gate, n)?, n))),
         )?
         .iter()
         .filter(|(l, _)| l.is_y())
-        .map(|(_, x)| *x),
+        .map(|(_, x)| (*x).clone()),
     ))
 };
 
 static SKIP: Jet = |ctx, n| {
-    let (list, gate) = n.as_cell()?;
+    let (list, gate) = n.as_cell().ok_or(Tanks::new())?;
 
-    Some(Noun::list_refs(
-        traverse_iter_option(
+    Ok(Noun::list_refs(
+        traverse_iter_result(
             list.list_iter()
-                .map(|n| Some((slam_pulled_gate(ctx, gate, n)?, n))),
+                .map(|n| Ok((slam_pulled_gate(ctx, gate, n)?, n))),
         )?
         .iter()
         .filter(|(l, _)| l.is_y())
-        .map(|(_, x)| x)
-        .cloned(),
+        .map(|(_, x)| (*x).clone()),
     ))
 };
 
 static SLAG: Jet = |ctx, n| {
-    let (a, list) = n.as_cell()?;
+    let (a, list) = n.as_cell().ok_or(Tanks::new())?;
 
-    let mut a_iter = a.as_atom()?.iter_u32_digits();
+    let mut a_iter = a.as_atom().ok_or(Tanks::new())?.iter_u32_digits();
 
     match a_iter.len() {
-        0 => Some(list.clone()),
-        1 => Some(Noun::list_refs(
+        0 => Ok(list.clone()),
+        1 => Ok(Noun::list_refs(
             list.list_iter()
                 .skip(a_iter.next().unwrap() as usize)
                 .collect::<Vec<_>>()
                 .iter()
+                .cloned()
                 .cloned(),
         )),
-        _ => Some(ctx.nouns.sig.clone()),
+        _ => Ok(ctx.nouns.sig.clone()),
     }
 };
 
 static SNAG: Jet = |_ctx, n| {
-    let (a, list) = n.as_cell()?;
+    let (a, list) = n.as_cell().ok_or(Tanks::new())?;
 
-    list.list_iter().nth(a.as_u32().unwrap() as usize).cloned()
+    list.list_iter()
+        .nth(a.as_u32().unwrap() as usize)
+        .cloned()
+        .ok_or(Tanks::new())
 };
 
 static SNIP: Jet = |_ctx, n| {
-    Some(Noun::list_refs(
+    Ok(Noun::list_refs(
         n.list_iter()
             .collect::<Vec<_>>()
             .iter()
             .rev()
             .skip(1)
             .rev()
+            .cloned()
             .cloned(),
     ))
 };
 
 static SNOC: Jet = |_ctx, n| {
-    let (list, b) = n.as_cell()?;
+    let (list, b) = n.as_cell().ok_or(Tanks::new())?;
 
-    Some(Noun::list_refs(
+    Ok(Noun::list_refs(
         list.list_iter()
             .chain(once(b))
             .collect::<Vec<_>>()
             .iter()
+            .cloned()
             .cloned(),
     ))
 };
@@ -548,53 +589,62 @@ static SNOC: Jet = |_ctx, n| {
 // };
 
 static SPIN: Jet = |ctx, n| {
-    let (list, b) = n.as_cell()?;
-    let (acc, gate) = b.as_cell()?;
+    let (list, b) = n.as_cell().ok_or(Tanks::new())?;
+    let (acc, gate) = b.as_cell().ok_or(Tanks::new())?;
 
     let mut res = Vec::new();
     let mut acc = acc.clone();
 
     for n in list.list_iter() {
         let foo = slam_pulled_gate(ctx, gate, &cell(&n, &acc))?;
-        let (el, new_acc) = foo.as_cell()?;
+        let (el, new_acc) = foo.as_cell().ok_or(Tanks::new())?;
         acc = new_acc.clone();
         res.push(el.clone());
     }
 
-    Some(cell(&Noun::list_refs(res.iter()), &acc))
+    Ok(cell(&Noun::list_refs(res.iter().cloned()), &acc))
 };
 
 static SPUN: Jet = |ctx, n| {
-    let (list, gate) = n.as_cell()?;
+    let (list, gate) = n.as_cell().ok_or(Tanks::new())?;
 
     let mut res = Vec::new();
-    let mut acc = gate.gate_sample()?.as_cell()?.1.clone();
+    let mut acc = gate
+        .gate_sample()
+        .ok_or(Tanks::new())?
+        .as_cell()
+        .ok_or(Tanks::new())?
+        .1
+        .clone();
 
     for n in list.list_iter() {
         let foo = slam_pulled_gate(ctx, gate, &cell(&n, &acc))?;
-        let (el, new_acc) = foo.as_cell()?;
+        let (el, new_acc) = foo.as_cell().ok_or(Tanks::new())?;
         acc = new_acc.clone();
         res.push(el.clone());
     }
 
-    Some(cell(&Noun::list_refs(res.iter()), &acc))
+    Ok(cell(&Noun::list_refs(res.iter().cloned()), &acc))
 };
 
 static TURN: Jet = |ctx, n| {
-    let (list, gate) = n.as_cell()?;
-    Some(Noun::list_refs(
-        traverse_iter_option(list.list_iter().map(|x| slam_pulled_gate(ctx, gate, x)))?.iter(),
+    let (list, gate) = n.as_cell().ok_or(Tanks::new())?;
+    Ok(Noun::list_refs(
+        traverse_iter_result(list.list_iter().map(|x| slam_pulled_gate(ctx, gate, x)))?
+            .iter()
+            .cloned(),
     ))
 };
 
 static WELD: Jet = |_ctx, n| {
-    let (a, b) = n.as_cell()?;
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
 
-    Some(Noun::list_refs(
+    Ok(Noun::list_refs(
         a.list_iter()
             .chain(b.list_iter())
             .collect::<Vec<_>>()
             .iter()
+            .cloned()
             .cloned(),
     ))
 };
@@ -602,35 +652,36 @@ static WELD: Jet = |_ctx, n| {
 static WELP: Jet = WELD;
 
 static ZING: Jet = |_ctx, n| {
-    Some(Noun::list_refs(
+    Ok(Noun::list_refs(
         n.list_iter()
             .map(|l| l.list_iter())
             .flatten()
             .collect::<Vec<_>>()
             .iter()
+            .cloned()
             .cloned(),
     ))
 };
 
 static BEX: Jet = |ctx, n| {
-    Some(Rc::new(Noun::Atom(
+    Ok(Rc::new(Noun::Atom(
         &ctx.big_uints.one << n.as_u32().unwrap(),
     )))
 };
 
 static END: Jet = |ctx, n| {
-    let (a, b) = n.as_cell()?;
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
     let bite = a.as_bite();
 
     let bits = bite.bits();
 
     let mask = (&ctx.big_uints.one << bits) - &ctx.big_uints.one;
 
-    Some(Rc::new(Noun::Atom(mask & b.as_atom()?)))
+    Ok(Rc::new(Noun::Atom(mask & b.as_atom().ok_or(Tanks::new())?)))
 };
 
 static CAN: Jet = |ctx, n| {
-    let (a, b) = n.as_cell()?;
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
     let bloq = a.as_u32().unwrap();
     let bloq_ = 2u32.pow(bloq);
 
@@ -645,28 +696,28 @@ static CAN: Jet = |ctx, n| {
             Some((acc? << bits) | (mask & q.as_atom()?))
         },
     );
-    Some(Rc::new(Noun::Atom(atom?)))
+    Ok(Rc::new(Noun::Atom(atom.ok_or(Tanks::new())?)))
 };
 
 static CAT: Jet = |_ctx, n| {
-    let (bloq, b) = n.as_cell()?;
-    let (b, c) = b.as_cell()?;
+    let (bloq, b) = n.as_cell().ok_or(Tanks::new())?;
+    let (b, c) = b.as_cell().ok_or(Tanks::new())?;
 
-    let bloq = bloq.as_u32()?;
-    let b = b.as_atom()?;
-    let c = c.as_atom()?;
+    let bloq = bloq.as_u32().ok_or(Tanks::new())?;
+    let b = b.as_atom().ok_or(Tanks::new())?;
+    let c = c.as_atom().ok_or(Tanks::new())?;
 
-    Some(Rc::new(Noun::Atom(
+    Ok(Rc::new(Noun::Atom(
         (c << (met(bloq, &b) * 2u32.pow(bloq))) | b,
     )))
 };
 
 static MET: Jet = |_ctx, n| {
-    let (bloq, b) = n.as_cell()?;
-    let b: Atom = b.as_atom()?.clone();
+    let (bloq, b) = n.as_cell().ok_or(Tanks::new())?;
+    let b: Atom = b.as_atom().ok_or(Tanks::new())?.clone();
     let bloq = bloq.as_u32().unwrap();
 
-    Some(Rc::new(Noun::from_u32(met(bloq, &b))))
+    Ok(Rc::new(Noun::from_u32(met(bloq, &b))))
 };
 
 fn met(bloq: u32, a: &Atom) -> u32 {
@@ -674,28 +725,28 @@ fn met(bloq: u32, a: &Atom) -> u32 {
 }
 
 static CUT: Jet = |ctx, n| {
-    let (a, b) = n.as_cell()?;
-    let (b, d) = b.as_cell()?;
-    let (b, c) = b.as_cell()?;
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
+    let (b, d) = b.as_cell().ok_or(Tanks::new())?;
+    let (b, c) = b.as_cell().ok_or(Tanks::new())?;
 
     let bits = 2u32.pow(a.as_u32().unwrap());
 
     let mask = (&ctx.big_uints.one << (bits * c.as_u32().unwrap())) - &ctx.big_uints.one;
 
-    Some(Rc::new(Noun::Atom(
-        (d.as_atom()? >> (bits * b.as_u32().unwrap())) & mask,
+    Ok(Rc::new(Noun::Atom(
+        (d.as_atom().ok_or(Tanks::new())? >> (bits * b.as_u32().unwrap())) & mask,
     )))
 };
 
 static FIL: Jet = |ctx, n| {
-    let (a, b) = n.as_cell()?;
-    let (b, c) = b.as_cell()?;
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
+    let (b, c) = b.as_cell().ok_or(Tanks::new())?;
 
     let bits = 2u32.pow(a.as_u32().unwrap());
 
     let mask = (&ctx.big_uints.one << bits) - &ctx.big_uints.one;
 
-    let src = c.as_atom()? & mask;
+    let src = c.as_atom().ok_or(Tanks::new())? & mask;
 
     let mut target = ctx.big_uints.zero.clone();
 
@@ -703,44 +754,44 @@ static FIL: Jet = |ctx, n| {
         target = (target << bits) | &src;
     }
 
-    Some(Rc::new(Noun::Atom(target)))
+    Ok(Rc::new(Noun::Atom(target)))
 };
 
 static LSH: Jet = |_ctx, n| {
-    let (a, b) = n.as_cell()?;
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
     let a = a.as_bite();
-    let b = b.as_atom()?;
+    let b = b.as_atom().ok_or(Tanks::new())?;
 
-    Some(Rc::new(Noun::Atom(b << a.bits())))
+    Ok(Rc::new(Noun::Atom(b << a.bits())))
 };
 
 static RSH: Jet = |_ctx, n| {
-    let (a, b) = n.as_cell()?;
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
     let a = a.as_bite();
-    let b = b.as_atom()?;
+    let b = b.as_atom().ok_or(Tanks::new())?;
 
-    Some(Rc::new(Noun::Atom(b >> a.bits())))
+    Ok(Rc::new(Noun::Atom(b >> a.bits())))
 };
 
 static RAP: Jet = |ctx, n| {
-    let (bloq, b) = n.as_cell()?;
+    let (bloq, b) = n.as_cell().ok_or(Tanks::new())?;
     let bloq = bloq.as_u32().unwrap();
     let bits = 2u32.pow(bloq);
 
     let mut target = ctx.big_uints.zero.clone();
 
     for el in b.list_iter().collect::<Vec<_>>().iter().rev() {
-        let el = el.as_atom()?;
+        let el = el.as_atom().ok_or(Tanks::new())?;
         if el != &ctx.big_uints.zero {
             target = (target << (bits * met(bloq, &el))) | el;
         }
     }
 
-    Some(Rc::new(Noun::Atom(target)))
+    Ok(Rc::new(Noun::Atom(target)))
 };
 
 static REP: Jet = |ctx, n| {
-    let (bite, b) = n.as_cell()?;
+    let (bite, b) = n.as_cell().ok_or(Tanks::new())?;
     let bite = bite.as_bite();
 
     let bits = bite.bits();
@@ -749,18 +800,18 @@ static REP: Jet = |ctx, n| {
     let mut target = ctx.big_uints.zero.clone();
 
     for el in b.list_iter().collect::<Vec<_>>().iter().rev() {
-        target = (target << bits) | (el.as_atom()? & &mask);
+        target = (target << bits) | (el.as_atom().ok_or(Tanks::new())? & &mask);
     }
 
-    Some(Rc::new(Noun::Atom(target)))
+    Ok(Rc::new(Noun::Atom(target)))
 };
 
 static REV: Jet = |ctx, n| {
-    let (bloq, b) = n.as_cell()?;
-    let (len, dat) = b.as_cell()?;
+    let (bloq, b) = n.as_cell().ok_or(Tanks::new())?;
+    let (len, dat) = b.as_cell().ok_or(Tanks::new())?;
     let bloq = bloq.as_u32().unwrap();
     let len = len.as_u32().unwrap();
-    let mut dat: Atom = dat.as_atom()?.clone();
+    let mut dat: Atom = dat.as_atom().ok_or(Tanks::new())?.clone();
 
     let bits = 2u32.pow(bloq);
     let mask = (&ctx.big_uints.one << bits) - &ctx.big_uints.one;
@@ -772,13 +823,13 @@ static REV: Jet = |ctx, n| {
         dat = dat >> bits;
     }
 
-    Some(Rc::new(Noun::Atom(target)))
+    Ok(Rc::new(Noun::Atom(target)))
 };
 
 static RIP: Jet = |ctx, n| {
-    let (bite, b) = n.as_cell()?;
+    let (bite, b) = n.as_cell().ok_or(Tanks::new())?;
     let bite = bite.as_bite();
-    let mut b: Atom = b.as_atom()?.clone();
+    let mut b: Atom = b.as_atom().ok_or(Tanks::new())?.clone();
 
     let bits = bite.bits();
     let mask = (&ctx.big_uints.one << bits) - &ctx.big_uints.one;
@@ -790,15 +841,15 @@ static RIP: Jet = |ctx, n| {
         b = b >> bits;
     }
 
-    Some(Noun::list_refs(target.iter()))
+    Ok(Noun::list_refs(target.iter().cloned()))
 };
 
 static RUN: Jet = |ctx, n| {
-    let (bite, b) = n.as_cell()?;
-    let (b, gate) = b.as_cell()?;
+    let (bite, b) = n.as_cell().ok_or(Tanks::new())?;
+    let (b, gate) = b.as_cell().ok_or(Tanks::new())?;
 
     let bite = bite.as_bite();
-    let mut b: Atom = b.as_atom()?.clone();
+    let mut b: Atom = b.as_atom().ok_or(Tanks::new())?.clone();
 
     let bits = bite.bits();
     let mask = (&ctx.big_uints.one << bits) - &ctx.big_uints.one;
@@ -807,20 +858,22 @@ static RUN: Jet = |ctx, n| {
 
     while b > ctx.big_uints.zero {
         target = (target << bits)
-            | ((*slam_pulled_gate(ctx, gate, &Rc::new(Noun::Atom(&mask & &b)))?).as_atom()?
+            | ((*slam_pulled_gate(ctx, gate, &Rc::new(Noun::Atom(&mask & &b)))?)
+                .as_atom()
+                .ok_or(Tanks::new())?
                 & &mask);
         b = b >> bits;
     }
 
-    Some(Rc::new(Noun::Atom(target)))
+    Ok(Rc::new(Noun::Atom(target)))
 };
 
 static RUT: Jet = |ctx, n| {
-    let (bite, b) = n.as_cell()?;
-    let (b, gate) = b.as_cell()?;
+    let (bite, b) = n.as_cell().ok_or(Tanks::new())?;
+    let (b, gate) = b.as_cell().ok_or(Tanks::new())?;
 
     let bite = bite.as_bite();
-    let mut b: Atom = b.as_atom()?.clone();
+    let mut b: Atom = b.as_atom().ok_or(Tanks::new())?.clone();
 
     let bits = bite.bits();
     let mask = (&ctx.big_uints.one << bits) - &ctx.big_uints.one;
@@ -829,21 +882,24 @@ static RUT: Jet = |ctx, n| {
 
     while b > ctx.big_uints.zero {
         target.push(
-            (*slam_pulled_gate(ctx, gate, &Rc::new(Noun::Atom(&mask & &b)))?).as_atom()? & &mask,
+            (*slam_pulled_gate(ctx, gate, &Rc::new(Noun::Atom(&mask & &b)))?)
+                .as_atom()
+                .ok_or(Tanks::new())?
+                & &mask,
         );
         b = b >> bits;
     }
 
-    Some(Noun::list(target.iter().cloned().map(Noun::Atom)))
+    Ok(Noun::list(target.iter().cloned().map(Noun::Atom)))
 };
 
 static SEW: Jet = |ctx, n| {
-    let (a, b) = n.as_cell()?;
-    let (b, recipient) = b.as_cell()?;
-    let (sew_start, c) = b.as_cell()?;
-    let (number_of_blocks, donor) = c.as_cell()?;
-    let recipient = recipient.as_atom()?;
-    let donor = donor.as_atom()?;
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
+    let (b, recipient) = b.as_cell().ok_or(Tanks::new())?;
+    let (sew_start, c) = b.as_cell().ok_or(Tanks::new())?;
+    let (number_of_blocks, donor) = c.as_cell().ok_or(Tanks::new())?;
+    let recipient = recipient.as_atom().ok_or(Tanks::new())?;
+    let donor = donor.as_atom().ok_or(Tanks::new())?;
 
     let bloq = a.as_u32().unwrap();
     let bits = 2u32.pow(bloq);
@@ -855,16 +911,16 @@ static SEW: Jet = |ctx, n| {
 
     let target = (recipient ^ apendix) | (donor & mask);
 
-    Some(Rc::new(Noun::Atom(target)))
+    Ok(Rc::new(Noun::Atom(target)))
 };
 
 static SWP: Jet = |ctx, n| {
-    let (bloq, b) = n.as_cell()?;
+    let (bloq, b) = n.as_cell().ok_or(Tanks::new())?;
     let bloq = bloq.as_u32().unwrap();
     let bits = 2u32.pow(bloq);
     let mask = (&ctx.big_uints.one << bits) - &ctx.big_uints.one;
 
-    let mut source = b.as_atom()?.clone();
+    let mut source = b.as_atom().ok_or(Tanks::new())?.clone();
     let mut target = ctx.big_uints.zero.clone();
 
     while source > ctx.big_uints.zero {
@@ -872,11 +928,11 @@ static SWP: Jet = |ctx, n| {
         source = source >> bits;
     }
 
-    Some(Rc::new(Noun::Atom(target)))
+    Ok(Rc::new(Noun::Atom(target)))
 };
 
 static XEB: Jet = |_ctx, n| {
-    let mut a = n.as_atom()?.clone();
+    let mut a = n.as_atom().ok_or(Tanks::new())?.clone();
 
     let mut c = 0;
 
@@ -885,7 +941,7 @@ static XEB: Jet = |_ctx, n| {
         c += 1;
     }
 
-    Some(Rc::new(Noun::from_u32(c)))
+    Ok(Rc::new(Noun::from_u32(c)))
 };
 
 static CON: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a | b);
@@ -893,23 +949,23 @@ static DIS: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a & b);
 static MIX: Jet = |_ctx, n| BINARY_ATOM(n, |a, b| a ^ b);
 
 static NOT: Jet = |ctx, n| {
-    let (a, b) = n.as_cell()?;
-    let (b, c) = b.as_cell()?;
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
+    let (b, c) = b.as_cell().ok_or(Tanks::new())?;
 
     let bloq = a.as_u32().unwrap();
     let bits = 2u32.pow(bloq);
     let mask = (&ctx.big_uints.one << (bits * b.as_u32().unwrap())) - &ctx.big_uints.one;
 
-    let target = c.as_atom()? ^ &mask;
+    let target = c.as_atom().ok_or(Tanks::new())? ^ &mask;
 
-    Some(Rc::new(Noun::Atom(target)))
+    Ok(Rc::new(Noun::Atom(target)))
 };
 
 static LAST: Jet = |_ctx, n| {
-    let (a, b) = n.as_cell()?;
-    let a = a.as_hair()?;
-    let b = b.as_hair()?;
-    Some(Noun::from_hair(last(&a, &b)))
+    let (a, b) = n.as_cell().ok_or(Tanks::new())?;
+    let a = a.as_hair().ok_or(Tanks::new())?;
+    let b = b.as_hair().ok_or(Tanks::new())?;
+    Ok(Noun::from_hair(last(&a, &b)))
 };
 
 fn last<'a>(a: &'a Hair, b: &'a Hair) -> &'a Hair {
@@ -929,20 +985,20 @@ fn last<'a>(a: &'a Hair, b: &'a Hair) -> &'a Hair {
 }
 
 static TRIP: Jet = |_ctx, n| {
-    let a = n.as_atom()?;
-    Some(Noun::list(
+    let a = n.as_atom().ok_or(Tanks::new())?;
+    Ok(Noun::list(
         a.to_bytes_le().iter().map(|b| Noun::from_u32(*b as u32)),
     ))
 };
 
 static MUK: Jet = |_ctx, n| {
-    let (seed, len) = n.as_cell()?;
-    let (len, key) = len.as_cell()?;
-    let seed = seed.as_u32()?;
-    let len = len.as_u32()?;
-    let key = key.as_atom()?;
+    let (seed, len) = n.as_cell().ok_or(Tanks::new())?;
+    let (len, key) = len.as_cell().ok_or(Tanks::new())?;
+    let seed = seed.as_u32().ok_or(Tanks::new())?;
+    let len = len.as_u32().ok_or(Tanks::new())?;
+    let key = key.as_atom().ok_or(Tanks::new())?;
 
-    Some(Rc::new(Noun::from_u32(muk(seed, len, key))))
+    Ok(Rc::new(Noun::from_u32(muk(seed, len, key))))
 };
 
 static JUST: DoubleJet = |ctx, n, m| {
@@ -1006,7 +1062,7 @@ fn fail(nail: Nail) -> Edge {
     }
 }
 
-const MUG: Jet = |__ctx, n| Some(Rc::new(Noun::from_u32(n.mug())));
+const MUG: Jet = |__ctx, n| Ok(Rc::new(Noun::from_u32(n.mug())));
 
 pub fn mum(syd: u32, fal: u32, key: &Atom) -> u32 {
     let wyd = met(3, &key);

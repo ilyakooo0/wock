@@ -1,5 +1,6 @@
 use clap::{command, error::Result, Parser, Subcommand};
-use nock::interpreter::{eval_pulled_gate, slam_pulled_gate, tar, InterpreterContext};
+use core::str;
+use nock::interpreter::{eval_pulled_gate, slam_pulled_gate, tar, InterpreterContext, Tanks};
 use nock::{
     cue::cue_bytes,
     interpreter::{generate_interpreter_context, slam},
@@ -110,9 +111,15 @@ fn interact(gate_file: PathBuf) -> Result<(), std::io::Error> {
     let source = get_stdin().unwrap();
 
     let mut spinner = new_spinner(String::from("Slamming gate..."));
-    let Some(slam) = slam(&mut generate_interpreter_context(), &gate, &source) else {
-        spinner.fail("Gate execution failed");
-        exit(1);
+    let slam = match slam(&mut generate_interpreter_context(), &gate, &source) {
+        Ok(slam) => slam,
+        Err(tanks) => {
+            spinner.fail("Gate execution failed");
+            let mut ctx = generate_interpreter_context();
+            let trace = wash(&mut ctx, tanks);
+            println!("{trace}");
+            exit(1);
+        }
     };
     let Some(target) = slam.as_bytes() else {
         spinner.fail("The gate did not produce a valid atom");
@@ -206,4 +213,21 @@ fn read_nock_or_compile(
     } else {
         read_nock(&path)
     }
+}
+
+fn wash(ctx: &mut InterpreterContext, tanks: Tanks) -> String {
+    let wash = cue_bytes(include_bytes!("../res/wash.nock"));
+
+    let mut target = String::new();
+    for tank in tanks.iter() {
+        let mut str = slam_pulled_gate(ctx, &wash, &tank)
+            .unwrap()
+            .as_atom()
+            .unwrap()
+            .to_bytes_le();
+
+        target.push_str(str::from_utf8_mut(&mut *str).unwrap())
+    }
+
+    target
 }

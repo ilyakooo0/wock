@@ -169,6 +169,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fplist"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cadb436ce55a7716dd5b977b93a79a819a9b9bbc5746ba9e607cd389836aa8f"
+
+[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -238,6 +244,7 @@ dependencies = [
  "bitvec",
  "clap",
  "console_error_panic_hook",
+ "fplist",
  "murmur3",
  "num-bigint",
  "num-integer",

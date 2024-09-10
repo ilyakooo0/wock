@@ -31,9 +31,17 @@
       url = "github:dfoxfranke/libaes_siv";
       flake = false;
     };
+    nockapp = {
+      url = "github:zorp-corp/nockapp";
+      flake = false;
+    };
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
-  outputs =
-    inputs@{ self, nixpkgs, flake-utils, vere, murmur3, pdjson, sha256, ... }:
+  outputs = inputs@{ self, nixpkgs, flake-utils, vere, murmur3, pdjson, sha256
+    , fenix, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -42,6 +50,31 @@
         };
       in {
         packages = rec {
+          nockapp = (let toolchain = fenix.packages.${system}.minimal.toolchain;
+          in pkgs.makeRustPlatform {
+            rustc = toolchain;
+            cargo = toolchain;
+          }).buildRustPackage {
+            doCheck = false;
+            name = "nockapp";
+            src = inputs.nockapp;
+
+            cargoLock = {
+              lockFile = "${inputs.nockapp}/Cargo.lock";
+              allowBuiltinFetchGit = true;
+            };
+            LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+            BINDGEN_EXTRA_CLANG_ARGS = [
+              "-I${pkgs.glibc.dev}/include"
+              "-I${pkgs.libclang.lib}/lib/clang/17/include"
+            ];
+          };
+          urbit-nock = pkgs.runCommand "urbit.nock" { } ''
+            mkdir -p source
+            cp ${./urbit.hoon} source/urbit.hoon
+            ${nockapp}/bin/choo source/urbit.hoon source
+            cp out.jam $out
+          '';
           gmp = pkgs.runCommand "gmp" {
             buildInputs = with pkgs; [ gnutar emscripten gcc ];
           } ''
