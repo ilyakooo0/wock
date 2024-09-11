@@ -8,7 +8,6 @@ use nock::{
     noun::{cell, Atom, Noun},
 };
 use spinoff::Spinner;
-use std::str::FromStr;
 use std::{
     fs::File,
     io::{stdin, stdout, Read, Write},
@@ -16,6 +15,8 @@ use std::{
     process::exit,
     rc::Rc,
 };
+
+const URBIT: &[u8] = include_bytes!("../res/urbit.jam");
 
 #[derive(Parser)]
 #[command(version)]
@@ -101,8 +102,10 @@ fn main() -> Result<(), std::io::Error> {
 }
 
 fn interact(gate_file: PathBuf) -> Result<(), std::io::Error> {
+    let urbit = cue_bytes(URBIT);
     let mut spinner = new_spinner(format!("Loading {gate_file:#?}"));
-    let Ok(gate) = read_nock(&gate_file) else {
+    let binding = read_nock(&gate_file).unwrap();
+    let Some((_gate_type, gate)) = binding.as_cell() else {
         spinner.fail(&format!("Failed to load {gate_file:#?}"));
         exit(1);
     };
@@ -116,7 +119,7 @@ fn interact(gate_file: PathBuf) -> Result<(), std::io::Error> {
         Err(tanks) => {
             spinner.fail("Gate execution failed");
             let mut ctx = generate_interpreter_context();
-            let trace = wash(&mut ctx, tanks);
+            let trace = wash(&mut ctx, &urbit, tanks);
             println!("{trace}");
             exit(1);
         }
@@ -175,10 +178,14 @@ fn compile_to_nock(
     spinner: &mut Spinner,
     root: PathBuf,
 ) -> Result<Rc<Noun>, std::io::Error> {
-    let hoon_nock = cue_bytes(include_bytes!("../res/hoon.nock"));
-    let (hoon_type, hoon) = hoon_nock.as_cell().unwrap();
-    let ride = cue_bytes(include_bytes!("../res/ride.nock"));
-    let comb = cue_bytes(include_bytes!("../res/comb.nock"));
+    let urbit = cue_bytes(URBIT);
+    let hoon = slam_pulled_gate(
+        ctx,
+        &urbit,
+        &cell(&Rc::new(Noun::from_bytes(b"hoon")), &ctx.nouns.sig),
+    )
+    .unwrap();
+    let (hoon_type, hoon) = hoon.as_cell().unwrap();
 
     spinner.update_text(format!("Compiling {root:#?}"));
 
@@ -186,19 +193,33 @@ fn compile_to_nock(
 
     let target = slam_pulled_gate(
         ctx,
-        &ride,
+        &urbit,
         &cell(
-            hoon_type,
-            &Rc::new(Noun::Atom(Atom::from_bytes_le(&root_source))),
+            &Rc::new(Noun::from_bytes(b"ride")),
+            &cell(
+                hoon_type,
+                &Rc::new(Noun::Atom(Atom::from_bytes_le(&root_source))),
+            ),
         ),
     )
     .unwrap();
 
-    let (_target_type, target_nock) = target.as_cell().unwrap();
+    let (target_type, target_nock) = target.as_cell().unwrap();
 
     spinner.update_text(format!("Combining Nock formulas"));
 
-    Ok(slam_pulled_gate(ctx, &comb, &cell(hoon, target_nock)).unwrap())
+    Ok(cell(
+        target_type,
+        &slam_pulled_gate(
+            ctx,
+            &urbit,
+            &cell(
+                &Rc::new(Noun::from_bytes(b"comb")),
+                &cell(hoon, target_nock),
+            ),
+        )
+        .unwrap(),
+    ))
 }
 
 fn read_nock_or_compile(
@@ -215,16 +236,27 @@ fn read_nock_or_compile(
     }
 }
 
-fn wash(ctx: &mut InterpreterContext, tanks: Tanks) -> String {
-    let wash = cue_bytes(include_bytes!("../res/wash.nock"));
-
+fn wash(ctx: &mut InterpreterContext, urbit: &Rc<Noun>, tanks: Tanks) -> String {
     let mut target = String::new();
-    for tank in tanks.iter() {
-        let mut str = slam_pulled_gate(ctx, &wash, &tank)
-            .unwrap()
-            .as_atom()
-            .unwrap()
-            .to_bytes_le();
+    for (subj, q) in tanks.iter() {
+        eprintln!("washing {q}");
+        let gate = tar(ctx, subj.clone(), q).unwrap();
+        let tank = eval_pulled_gate(ctx, gate).unwrap();
+        let mut str = slam_pulled_gate(
+            ctx,
+            &urbit,
+            &cell(
+                &Rc::new(Noun::from_bytes(b"wash")),
+                &cell(
+                    &cell(&Rc::new(Noun::from_u32(0)), &Rc::new(Noun::from_u32(80))),
+                    &tank,
+                ),
+            ),
+        )
+        .unwrap()
+        .as_atom()
+        .unwrap()
+        .to_bytes_le();
 
         target.push_str(str::from_utf8_mut(&mut *str).unwrap())
     }

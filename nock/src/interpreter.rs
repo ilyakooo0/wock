@@ -2,7 +2,6 @@ use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use bitvec::prelude;
 use fplist::cons;
 use fplist::PersistentList;
 use num_bigint::BigUint;
@@ -225,10 +224,7 @@ fn tar_u32<'a>(
             let foo = tar(ctx, subj, &formula)?;
             Ok(wut(ctx, &foo).clone())
         }
-        4 => {
-            let foo = tar(ctx, subj, &formula)?;
-            Ok(Rc::new(lus(&foo)?))
-        }
+        4 => Ok(Rc::new(lus(&*tar(ctx, subj, &formula)?)?)),
         5 => {
             let (b, c) = formula.as_cell().ok_or(Tanks::new())?;
             let foo = tar(ctx, subj.clone(), &b)?;
@@ -281,6 +277,7 @@ fn tar_u32<'a>(
                 Noun::Atom(_) => tar(ctx, subj, &d),
                 Noun::Cell { p, q, .. } => {
                     let eval = |ctx: &mut InterpreterContext| tar(ctx, subj.clone(), &d);
+                    // println!("{p}");
                     if *p == ctx.nouns.memo {
                         let hash = cell(&subj, &d).hash();
                         match ctx.memo.get(&hash) {
@@ -292,9 +289,10 @@ fn tar_u32<'a>(
                             }
                         }
                     } else if *p == ctx.nouns.mean {
-                        let gate = tar(ctx, subj.clone(), q)?;
-                        let trace = eval_pulled_gate(ctx, gate)?;
-                        with_trace(trace, eval(ctx))
+                        // let gate = tar(ctx, subj.clone(), q)?;
+                        // let trace = eval_pulled_gate(ctx, gate)?;
+                        println!("tracing");
+                        with_trace((subj.clone(), q.clone()), eval(ctx))
                     } else {
                         eval(ctx)
                     }
@@ -305,8 +303,7 @@ fn tar_u32<'a>(
     }
 }
 
-fn with_trace<T>(tank: Tank, src: Result<T, Tanks>) -> Result<T, Tanks> {
-    println!("{tank}");
+fn with_trace<T>(tank: (Rc<Noun>, Rc<Noun>), src: Result<T, Tanks>) -> Result<T, Tanks> {
     match src {
         Ok(a) => Ok(a),
         Err(tanks) => Err(cons(tank, tanks)),
@@ -314,7 +311,7 @@ fn with_trace<T>(tank: Tank, src: Result<T, Tanks>) -> Result<T, Tanks> {
 }
 
 pub type Tank = Rc<Noun>;
-pub type Tanks = PersistentList<Tank>;
+pub type Tanks = PersistentList<(Rc<Noun>, Rc<Noun>)>;
 
 pub const EMPTY_TANKS: Tanks = Tanks::new();
 
