@@ -277,7 +277,6 @@ fn tar_u32<'a>(
                 Noun::Atom(_) => tar(ctx, subj, &d),
                 Noun::Cell { p, q, .. } => {
                     let eval = |ctx: &mut InterpreterContext| tar(ctx, subj.clone(), &d);
-                    // println!("{p}");
                     if *p == ctx.nouns.memo {
                         let hash = cell(&subj, &d).hash();
                         match ctx.memo.get(&hash) {
@@ -289,9 +288,6 @@ fn tar_u32<'a>(
                             }
                         }
                     } else if *p == ctx.nouns.mean {
-                        // let gate = tar(ctx, subj.clone(), q)?;
-                        // let trace = eval_pulled_gate(ctx, gate)?;
-                        println!("tracing");
                         with_trace((subj.clone(), q.clone()), eval(ctx))
                     } else {
                         eval(ctx)

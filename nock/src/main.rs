@@ -8,6 +8,7 @@ use nock::{
     noun::{cell, Atom, Noun},
 };
 use spinoff::Spinner;
+use std::cell::LazyCell;
 use std::{
     fs::File,
     io::{stdin, stdout, Read, Write},
@@ -16,7 +17,7 @@ use std::{
     rc::Rc,
 };
 
-const URBIT: &[u8] = include_bytes!("../res/urbit.jam");
+static GENERATE_URBIT: fn() -> Rc<Noun> = || cue_bytes(include_bytes!("../res/urbit.jam"));
 
 #[derive(Parser)]
 #[command(version)]
@@ -65,34 +66,77 @@ enum RunCommand {
 }
 
 fn main() -> Result<(), std::io::Error> {
+    let urbit = LazyCell::new(GENERATE_URBIT);
+    let mut ctx = generate_interpreter_context();
+
     let cli = Cli::parse();
 
     match cli.command {
         NockCommand::Run { command } => match command {
-            RunCommand::Interact { gate } => interact(gate)?,
+            RunCommand::Interact { gate: gate_file } => {
+                let mut spinner = new_spinner(format!("Loading {gate_file:#?}"));
+
+                let (_typ, nok) = read_nock_or_compile(&mut spinner, &mut ctx, &urbit, &gate_file)?;
+
+                spinner.success(&format!("Loaded {gate_file:#?}"));
+
+                let source = get_stdin().unwrap();
+
+                let mut spinner = new_spinner(String::from("Slamming gate..."));
+                let slam = match slam(&mut ctx, &nok, &source) {
+                    Ok(slam) => slam,
+                    Err(tanks) => {
+                        spinner.fail("Gate execution failed");
+
+                        let mut spinner = new_spinner(String::from("Building trace"));
+                        let trace = wash(&mut ctx, &urbit, tanks);
+                        spinner.success("Trace built");
+                        println!("{trace}");
+                        exit(1);
+                    }
+                };
+                let Some(target) = slam.as_bytes() else {
+                    spinner.fail("The gate did not produce a valid atom");
+                    exit(1);
+                };
+                spinner.success("Gate slammed successfully");
+
+                stdout().write_all(&target)?;
+            }
         },
         NockCommand::Compile { root, output } => {
-            compile(root, output).unwrap();
+            let mut spinner = new_spinner(format!("Compiling {root:#?}"));
+
+            let nock = compile_to_nock(&mut ctx, &urbit, &mut spinner, root)?;
+
+            spinner.update_text(format!("Writing output to {output:#?}"));
+
+            let mut output_file = File::create(output.clone())?;
+            File::write_all(&mut output_file, &jam_to_bytes(&nock)).unwrap();
+
+            spinner.success(&*format!("Compiled {output:#?} successfully"));
+
+            ()
         }
         NockCommand::HashGate { gate } => {
-            let gate = read_nock(&gate)?;
+            let (_type, gate) = read_nock(&gate)?;
             let (hash, _sample) = gate.hash_gate();
 
             println!("{hash}");
         }
         NockCommand::HashDoubleGate { gate } => {
-            let gate = read_nock(&gate)?;
+            let (_type, gate) = read_nock(&gate)?;
             let (hash, _sample_1, _sample_2) = gate.hash_double_gate();
 
             println!("{hash}");
         }
         NockCommand::Eval { nock } => {
-            let mut ctx = generate_interpreter_context();
+            let mut spinner = new_spinner(format!("Loading {nock:#?}"));
 
-            let nock = read_nock_or_compile(&mut ctx, nock)?;
+            let (_typ, nok) = read_nock_or_compile(&mut spinner, &mut ctx, &urbit, &nock)?;
 
             let sig = ctx.nouns.sig.clone();
-            let result = tar(&mut ctx, sig, &nock).unwrap();
+            let result = tar(&mut ctx, sig, &nok).unwrap();
 
             println!("{result}");
         }
@@ -101,42 +145,13 @@ fn main() -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn interact(gate_file: PathBuf) -> Result<(), std::io::Error> {
-    let urbit = cue_bytes(URBIT);
-    let mut spinner = new_spinner(format!("Loading {gate_file:#?}"));
-    let binding = read_nock(&gate_file).unwrap();
-    let Some((_gate_type, gate)) = binding.as_cell() else {
-        spinner.fail(&format!("Failed to load {gate_file:#?}"));
-        exit(1);
-    };
-    spinner.success(&format!("Loaded {gate_file:#?}"));
+type Vase = (Rc<Noun>, Rc<Noun>);
 
-    let source = get_stdin().unwrap();
-
-    let mut spinner = new_spinner(String::from("Slamming gate..."));
-    let slam = match slam(&mut generate_interpreter_context(), &gate, &source) {
-        Ok(slam) => slam,
-        Err(tanks) => {
-            spinner.fail("Gate execution failed");
-            let mut ctx = generate_interpreter_context();
-            let trace = wash(&mut ctx, &urbit, tanks);
-            println!("{trace}");
-            exit(1);
-        }
-    };
-    let Some(target) = slam.as_bytes() else {
-        spinner.fail("The gate did not produce a valid atom");
-        exit(1);
-    };
-    spinner.success("Gate slammed successfully");
-
-    stdout().write_all(&target)?;
-
-    Ok(())
-}
-
-fn read_nock(nock_file: &PathBuf) -> Result<Rc<Noun>, std::io::Error> {
-    Ok(cue_bytes(&read_file(nock_file)?))
+/// Reads a `vase` from a `.nock` file.
+fn read_nock(nock_file: &PathBuf) -> Result<Vase, std::io::Error> {
+    let nock = cue_bytes(&read_file(nock_file)?);
+    let (typ, nok) = nock.as_cell().unwrap();
+    Ok((typ.clone(), nok.clone()))
 }
 
 fn read_file(nock_file: &PathBuf) -> Result<Vec<u8>, std::io::Error> {
@@ -156,29 +171,12 @@ fn new_spinner(txt: String) -> Spinner {
     Spinner::new_with_stream(spinoff::spinners::Dots, txt, None, spinoff::Streams::Stderr)
 }
 
-fn compile(root: PathBuf, output: PathBuf) -> Result<(), std::io::Error> {
-    let mut spinner = new_spinner(format!("Loading Hoon compiler"));
-
-    let mut ctx = generate_interpreter_context();
-
-    let nock = compile_to_nock(&mut ctx, &mut spinner, root)?;
-
-    spinner.update_text(format!("Writing output to {output:#?}"));
-
-    let mut output_file = File::create(output.clone())?;
-    File::write_all(&mut output_file, &jam_to_bytes(&nock)).unwrap();
-
-    spinner.success(&*format!("Compiled {output:#?} successfully"));
-
-    Ok(())
-}
-
 fn compile_to_nock(
     ctx: &mut InterpreterContext,
+    urbit: &LazyCell<Rc<Noun>>,
     spinner: &mut Spinner,
     root: PathBuf,
 ) -> Result<Rc<Noun>, std::io::Error> {
-    let urbit = cue_bytes(URBIT);
     let hoon = slam_pulled_gate(
         ctx,
         &urbit,
@@ -223,14 +221,15 @@ fn compile_to_nock(
 }
 
 fn read_nock_or_compile(
+    spinner: &mut Spinner,
     ctx: &mut InterpreterContext,
-    path: PathBuf,
-) -> Result<Rc<Noun>, std::io::Error> {
+    urbit: &LazyCell<Rc<Noun>>,
+    path: &PathBuf,
+) -> Result<Vase, std::io::Error> {
     if path.extension().and_then(|x| x.to_str()) == Some("hoon") {
-        let mut spinner = new_spinner(String::new());
-        let nock = compile_to_nock(ctx, &mut spinner, path.clone())?;
-        spinner.success(&*format!("Compiled {path:#?} successfully"));
-        Ok(nock)
+        let nock = compile_to_nock(ctx, urbit, spinner, path.clone())?;
+        let (typ, nok) = nock.as_cell().unwrap();
+        Ok((typ.clone(), nok.clone()))
     } else {
         read_nock(&path)
     }
@@ -239,7 +238,6 @@ fn read_nock_or_compile(
 fn wash(ctx: &mut InterpreterContext, urbit: &Rc<Noun>, tanks: Tanks) -> String {
     let mut target = String::new();
     for (subj, q) in tanks.iter() {
-        eprintln!("washing {q}");
         let gate = tar(ctx, subj.clone(), q).unwrap();
         let tank = eval_pulled_gate(ctx, gate).unwrap();
         let mut str = slam_pulled_gate(
