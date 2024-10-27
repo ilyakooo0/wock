@@ -1,1 +1,1 @@
-|=(x=@t (crip (weld "Hello, " (trip !!))))
+|=(x=@t (crip (weld "Hello, " (trip x))))

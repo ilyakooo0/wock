@@ -145,8 +145,6 @@ fn main() -> Result<(), std::io::Error> {
     Ok(())
 }
 
-type Vase = (Rc<Noun>, Rc<Noun>);
-
 /// Reads a `vase` from a `.nock` file.
 fn read_nock(nock_file: &PathBuf) -> Result<Vase, std::io::Error> {
     let nock = cue_bytes(&read_file(nock_file)?);
