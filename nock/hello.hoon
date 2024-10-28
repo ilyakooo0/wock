@@ -1,1 +1,5 @@
-|=(x=@t (crip (weld "Hello, " (trip x))))
+|=  name=@t
+?+  name  (crip (weld "Hello, " (trip name)))
+  'Curtis'  'Hello, daddy...'
+  ''  'Hello, world!'
+==

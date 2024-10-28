@@ -1,3 +1,3 @@
 #!/bin/sh
 
-wasm-pack build --no-typescript --no-pack --target=web
+wasm-pack build --no-typescript --no-pack --target=web --dev
