@@ -37,7 +37,7 @@ wasm-bindgen-test = "0.3.34"
 
 [profile.release]
 # Tell `rustc` to optimize for small code size.
-opt-level = "s"
+opt-level = 3
 
 [package.metadata.wasm-pack.profile.dev]
 wasm-opt = ["-O", "--enable-bulk-memory"]

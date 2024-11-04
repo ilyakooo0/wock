@@ -146,7 +146,7 @@ fn main() -> Result<(), std::io::Error> {
 }
 
 /// Reads a `vase` from a `.nock` file.
-fn read_nock(nock_file: &PathBuf) -> Result<Vase, std::io::Error> {
+fn read_nock(nock_file: &PathBuf) -> Result<(Rc<Noun>, Rc<Noun>), std::io::Error> {
     let nock = cue_bytes(&read_file(nock_file)?);
     let (typ, nok) = nock.as_cell().unwrap();
     Ok((typ.clone(), nok.clone()))
@@ -223,7 +223,7 @@ fn read_nock_or_compile(
     ctx: &mut InterpreterContext,
     urbit: &LazyCell<Rc<Noun>>,
     path: &PathBuf,
-) -> Result<Vase, std::io::Error> {
+) -> Result<(Rc<Noun>, Rc<Noun>), std::io::Error> {
     if path.extension().and_then(|x| x.to_str()) == Some("hoon") {
         let nock = compile_to_nock(ctx, urbit, spinner, path.clone())?;
         let (typ, nok) = nock.as_cell().unwrap();
