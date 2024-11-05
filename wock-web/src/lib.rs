@@ -1,7 +1,12 @@
 #![feature(iter_collect_into)]
 mod utils;
 
-use std::rc::Rc;
+use std::{
+    borrow::BorrowMut,
+    cell::RefCell,
+    ops::{Deref, DerefMut},
+    rc::Rc,
+};
 
 use dodrio::{
     bumpalo::{self, Bump},
@@ -9,7 +14,7 @@ use dodrio::{
 };
 use nock::{
     cue::cue_bytes,
-    interpreter::{generate_interpreter_context, slam},
+    interpreter::{generate_interpreter_context, slam, InterpreterContext},
     noun::{cell, Noun},
 };
 use wasm_bindgen::prelude::*;
@@ -26,15 +31,14 @@ extern "C" {
 
 struct WockApp {
     nock: Rc<Noun>,
+    ctx: RefCell<InterpreterContext>,
     model: Rc<Noun>,
 }
 
 impl<'a> Render<'a> for WockApp {
     fn render(&self, cx: &mut dodrio::RenderContext<'a>) -> dodrio::Node<'a> {
-        let mut ctx = generate_interpreter_context();
-
         let sail = slam(
-            &mut ctx,
+            &mut *self.ctx.borrow_mut(),
             &self.nock,
             &cell(&Rc::new(Noun::from_bytes(b"view")), &self.model),
         )
@@ -76,10 +80,11 @@ fn render_sail<'a>(ctx: &mut RenderContext<'a>, manx: Rc<Noun>) -> Node<'a> {
                             move |root: &mut dyn RootRender,
                                   vdom: VdomWeak,
                                   _event: web_sys::Event| {
-                                let mut ctx = generate_interpreter_context();
-                                let sig = ctx.nouns.sig.clone();
-
                                 let app = root.unwrap_mut::<WockApp>();
+
+                                let mut ctx = app.ctx.borrow_mut();
+
+                                let sig = ctx.nouns.sig.clone();
 
                                 let new_model = slam(
                                     &mut ctx,
@@ -151,7 +156,15 @@ pub async fn main(path: &str) {
     )
     .unwrap();
 
-    dodrio::Vdom::new(&output_el, WockApp { nock, model }).forget();
+    dodrio::Vdom::new(
+        &output_el,
+        WockApp {
+            nock,
+            model,
+            ctx: RefCell::new(ctx),
+        },
+    )
+    .forget();
 }
 
 pub async fn load_nock(path: &str) -> Rc<Noun> {
