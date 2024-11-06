@@ -27,6 +27,9 @@ extern "C" {
 
     #[wasm_bindgen(js_namespace = console)]
     fn log(s: &str);
+
+    #[wasm_bindgen(js_namespace = console)]
+    fn error(s: &str);
 }
 
 struct WockApp {
@@ -86,19 +89,25 @@ fn render_sail<'a>(ctx: &mut RenderContext<'a>, manx: Rc<Noun>) -> Node<'a> {
 
                                 let sig = ctx.nouns.sig.clone();
 
-                                let new_model = slam(
+                                let event = cell(&value, &sig);
+
+                                match slam(
                                     &mut ctx,
                                     &app.nock,
                                     &cell(
                                         &Rc::new(Noun::from_bytes(b"move")),
-                                        &cell(&app.model, &cell(&value, &sig)),
+                                        &cell(&app.model, &event),
                                     ),
-                                )
-                                .unwrap();
-
-                                app.model = new_model;
-
-                                vdom.schedule_render();
+                                ) {
+                                    Ok(new_model) => {
+                                        app.model = new_model;
+                                        vdom.schedule_render();
+                                    }
+                                    Err(_) => error(&*format!(
+                                        "Application failed to process event: {}",
+                                        event
+                                    )),
+                                };
                             },
                         )
                     },

@@ -6,7 +6,7 @@
   |%
   ++  init  *model
   ++  view  |~  model  *manx
-  ++  move  |~  [model [event *]]  *model
+  ++  move  |~  [model event]  *model
   --
 ++  app
   |*  [model=mold event=mold]
@@ -19,15 +19,15 @@
       (view.app (model args))
     %move
       =/  [=model event-tape=tape payload=*]  (,[model tape *] args)
-      (move.app [model (event (crip event-tape)) payload])
+      (move.app [model (event [(crip event-tape) payload])])
   ==
 --
 =>
 |%
 +$  event
-  $?
-    %inc
-    %dec
+  $%
+    [%inc ~]
+    [%dec ~]
   ==
 --
 %-  (app @ud event)
@@ -42,7 +42,7 @@
   ==
 ++  init  8
 ++  move
-  |=  [model=@ud step=[event *]]
+  |=  [model=@ud step=event]
   ^-  @ud
   ?-  -.step
     %inc  +(model)
