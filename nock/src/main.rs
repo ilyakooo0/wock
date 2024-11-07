@@ -1,6 +1,7 @@
 use clap::{command, error::Result, Parser, Subcommand};
 use core::str;
 use nock::interpreter::{eval_pulled_gate, slam_pulled_gate, tar, InterpreterContext, Tanks};
+use nock::wash;
 use nock::{
     cue::cue_bytes,
     interpreter::{generate_interpreter_context, slam},
@@ -8,6 +9,7 @@ use nock::{
     noun::{cell, Atom, Noun},
 };
 use spinoff::Spinner;
+use std::borrow::Borrow;
 use std::cell::LazyCell;
 use std::{
     fs::File,
@@ -179,8 +181,14 @@ fn compile_to_nock(
         ctx,
         &urbit,
         &cell(&Rc::new(Noun::from_bytes(b"hoon")), &ctx.nouns.sig),
-    )
-    .unwrap();
+    );
+    let hoon = or_wash_fail(
+        ctx,
+        urbit,
+        hoon,
+        spinner,
+        "Failed to read Hoon standard library",
+    );
     let (hoon_type, hoon) = hoon.as_cell().unwrap();
 
     spinner.update_text(format!("Compiling {root:#?}"));
@@ -197,25 +205,26 @@ fn compile_to_nock(
                 &Rc::new(Noun::Atom(Atom::from_bytes_le(&root_source))),
             ),
         ),
-    )
-    .unwrap();
+    );
+    let target = or_wash_fail(ctx, urbit, target, spinner, "Compilation failed");
 
     let (target_type, target_nock) = target.as_cell().unwrap();
 
     spinner.update_text(format!("Combining Nock formulas"));
 
-    Ok(cell(
+    let combined_nock = slam_pulled_gate(
+        ctx,
+        &urbit,
+        &cell(
+            &Rc::new(Noun::from_bytes(b"comb")),
+            &cell(hoon, target_nock),
+        ),
+    );
+    let combined_nock = cell(
         target_type,
-        &slam_pulled_gate(
-            ctx,
-            &urbit,
-            &cell(
-                &Rc::new(Noun::from_bytes(b"comb")),
-                &cell(hoon, target_nock),
-            ),
-        )
-        .unwrap(),
-    ))
+        &or_wash_fail(ctx, urbit, combined_nock, spinner, "Failed to combine Nock"),
+    );
+    Ok(combined_nock)
 }
 
 fn read_nock_or_compile(
@@ -233,29 +242,20 @@ fn read_nock_or_compile(
     }
 }
 
-fn wash(ctx: &mut InterpreterContext, urbit: &Rc<Noun>, tanks: Tanks) -> String {
-    let mut target = String::new();
-    for (subj, q) in tanks.iter() {
-        let gate = tar(ctx, subj.clone(), q).unwrap();
-        let tank = eval_pulled_gate(ctx, gate).unwrap();
-        let mut str = slam_pulled_gate(
-            ctx,
-            &urbit,
-            &cell(
-                &Rc::new(Noun::from_bytes(b"wash")),
-                &cell(
-                    &cell(&Rc::new(Noun::from_u32(0)), &Rc::new(Noun::from_u32(80))),
-                    &tank,
-                ),
-            ),
-        )
-        .unwrap()
-        .as_atom()
-        .unwrap()
-        .to_bytes_le();
-
-        target.push_str(str::from_utf8_mut(&mut *str).unwrap())
+fn or_wash_fail(
+    ctx: &mut InterpreterContext,
+    urbit: &Rc<Noun>,
+    source: Result<Rc<Noun>, Tanks>,
+    spinner: &mut Spinner,
+    fail_err: &str,
+) -> Rc<Noun> {
+    match source {
+        Ok(source) => source,
+        Err(tanks) => {
+            spinner.fail(fail_err);
+            let washed_tanks = wash(ctx, urbit, tanks);
+            eprintln!("{}", washed_tanks);
+            exit(1)
+        }
     }
-
-    target
 }

@@ -1,12 +1,8 @@
 #![feature(iter_collect_into)]
 mod utils;
 
-use std::{
-    borrow::BorrowMut,
-    cell::RefCell,
-    ops::{Deref, DerefMut},
-    rc::Rc,
-};
+use core::panic;
+use std::{cell::RefCell, rc::Rc};
 
 use dodrio::{
     bumpalo::{self, Bump},
@@ -16,10 +12,11 @@ use nock::{
     cue::cue_bytes,
     interpreter::{generate_interpreter_context, slam, InterpreterContext},
     noun::{cell, Noun},
+    wash,
 };
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::JsFuture;
-use web_sys::Element;
+use wasm_bindgen_futures::{spawn_local, JsFuture};
+use web_sys::{console::error_1, Element};
 
 #[wasm_bindgen]
 extern "C" {
@@ -32,22 +29,51 @@ extern "C" {
     fn error(s: &str);
 }
 
+#[derive(Clone)]
 struct WockApp {
     nock: Rc<Noun>,
     ctx: RefCell<InterpreterContext>,
     model: Rc<Noun>,
+    urbit: RefCell<Option<Rc<Noun>>>,
+}
+
+impl WockApp {
+    async fn get_urbit(self: &Self) -> Rc<Noun> {
+        match self.urbit.borrow().clone() {
+            Some(urbit) => urbit,
+            None => {
+                let urbit = load_nock("/urbit.nock").await.unwrap_or_else(|err| {
+                    error_1(&err);
+                    panic!("Could not load urbit.")
+                });
+
+                self.urbit.replace(Some(urbit.clone()));
+
+                urbit
+            }
+        }
+    }
 }
 
 impl<'a> Render<'a> for WockApp {
     fn render(&self, cx: &mut dodrio::RenderContext<'a>) -> dodrio::Node<'a> {
-        let sail = slam(
+        match slam(
             &mut *self.ctx.borrow_mut(),
             &self.nock,
             &cell(&Rc::new(Noun::from_bytes(b"view")), &self.model),
-        )
-        .unwrap();
-
-        render_sail(cx, sail)
+        ) {
+            Ok(sail) => render_sail(cx, sail),
+            Err(tanks) => {
+                let wock_app = self.clone();
+                let mut ctx = (*self.ctx.borrow()).clone();
+                spawn_local(async move {
+                    let urbit = wock_app.get_urbit().await;
+                    let str = wash(&mut ctx, &urbit, tanks);
+                    error_1(&JsValue::from_str(&str));
+                });
+                panic!("Could not render");
+            }
+        }
     }
 }
 
@@ -151,7 +177,10 @@ fn tape_to_bump_str<'a>(bump: &'a Bump, non: &Rc<Noun>) -> &'a str {
 
 #[wasm_bindgen]
 pub async fn main(path: &str) {
-    let nock = load_nock(path).await;
+    let nock = load_nock(path).await.unwrap_or_else(|err| {
+        error_1(&err);
+        panic!("Could not load nock.")
+    });
 
     let document = gloo::utils::document();
     let output_el: Element = document.get_element_by_id("output").unwrap();
@@ -162,8 +191,20 @@ pub async fn main(path: &str) {
         &mut ctx,
         &nock,
         &cell(&Rc::new(Noun::from_bytes(b"init")), &Rc::new(Noun::SIG)),
-    )
-    .unwrap();
+    );
+    let model = match model {
+        Ok(model) => model,
+        Err(tanks) => {
+            let urbit = load_nock("/urbit.nock").await.unwrap_or_else(|err| {
+                error_1(&err);
+                panic!("Could not load urbit.")
+            });
+
+            let str = wash(&mut ctx, &urbit, tanks);
+            error_1(&JsValue::from_str(&str));
+            panic!("Could not load initial model.");
+        }
+    };
 
     dodrio::Vdom::new(
         &output_el,
@@ -171,26 +212,26 @@ pub async fn main(path: &str) {
             nock,
             model,
             ctx: RefCell::new(ctx),
+            urbit: RefCell::new(None),
         },
     )
     .forget();
 }
 
-pub async fn load_nock(path: &str) -> Rc<Noun> {
+pub async fn load_nock(path: &str) -> Result<Rc<Noun>, JsValue> {
     let window = web_sys::window().unwrap();
 
-    let resp = JsFuture::from(window.fetch_with_str(path)).await.unwrap();
+    let resp = JsFuture::from(window.fetch_with_str(path)).await?;
     assert!(resp.is_instance_of::<web_sys::Response>());
-    let resp: web_sys::Response = resp.dyn_into().unwrap();
-    let blob = JsFuture::from(resp.blob().unwrap()).await.unwrap();
+    let resp: web_sys::Response = resp.dyn_into()?;
+    let blob = JsFuture::from(resp.blob()?).await?;
     assert!(blob.is_instance_of::<web_sys::Blob>());
-    let blob: web_sys::Blob = blob.dyn_into().unwrap();
+    let blob: web_sys::Blob = blob.dyn_into()?;
 
-    let nock =
-        js_sys::Uint8Array::new(&JsFuture::from(blob.array_buffer()).await.unwrap()).to_vec();
+    let nock = js_sys::Uint8Array::new(&JsFuture::from(blob.array_buffer()).await?).to_vec();
 
     let nock = cue_bytes(&*nock);
     let (_typ, nok) = nock.as_cell().unwrap();
 
-    nok.clone()
+    Ok(nok.clone())
 }

@@ -9,6 +9,7 @@ use num_bigint::BigUint;
 use crate::jets::*;
 use crate::noun::*;
 
+#[derive(Clone)]
 pub struct Nouns {
     pub y: Rc<Noun>,
     pub n: Rc<Noun>,
@@ -23,6 +24,7 @@ pub struct Nouns {
     pub mean: Rc<Noun>,
 }
 
+#[derive(Clone)]
 pub struct BigUints {
     pub zero: BigUint,
     pub one: BigUint,
@@ -31,6 +33,7 @@ pub struct BigUints {
     pub four: BigUint,
 }
 
+#[derive(Clone)]
 pub struct InterpreterContext {
     pub jets: Jets,
     pub double_jets: DoubleJets,
