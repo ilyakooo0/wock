@@ -22,7 +22,7 @@ console_error_panic_hook = { version = "0.1.7", optional = true }
 wasm-bindgen-futures = "0.4.45"
 js-sys = "0.3.72"
 # dodrio = "0.2.0"
-dodrio = { path = "../../dodrio" }
+dodrio = { path = "../dodrio" }
 
 [dependencies.web-sys]
 version = "0.3.72"

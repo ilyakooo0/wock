@@ -1,0 +1,54 @@
+language: rust
+sudo: false
+
+INSTALL_NODE_VIA_NVM: &INSTALL_NODE_VIA_NVM
+  |
+    rustup target add wasm32-unknown-unknown
+    curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.33.8/install.sh | bash
+    source ~/.nvm/nvm.sh
+    nvm install v10.5
+
+INSTALL_WASM_PPACK: &INSTALL_WASM_PACK
+  |
+    curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh -s -- -f
+
+install:
+  - *INSTALL_NODE_VIA_NVM
+  - *INSTALL_WASM_PACK
+  - rustup target add wasm32-unknown-unknown
+
+matrix:
+  include:
+    - name: "build (stable)"
+      rust: stable
+      script: INSTALL=1 ./build.sh
+    - name: "build (beta)"
+      rust: beta
+      script: INSTALL=1 ./build.sh
+    - name: "headless browser tests (firefox)"
+      rust: stable
+      addons:
+        firefox: latest
+      script: wasm-pack test --firefox --headless -- --features xxx-unstable-internal-use-only
+    - name: "native tests"
+      rust: stable
+      install: echo "no install"
+      script: cargo test --all
+
+    # TODO: A bug in `rustc` is making `js-sys` broken on nightly:
+    # https://github.com/rust-lang/rust/issues/69315
+    # - name: "build (nightly)"
+    #   rust: nightly
+    #   script: INSTALL=1 ./build.sh
+    # - name: "check native benches"
+    #   rust: nightly
+    #   install: echo "no install"
+    #   script: cargo check --benches --features xxx-unstable-internal-use-only
+
+    # TODO: `chromedriver` is complaining about ports or something. Temporarily
+    # disable in CI until we figure it out.
+    # - name: "headless browser tests (chrome)"
+    #   rust: stable
+    #   addons:
+    #     chrome: stable
+    #   script: wasm-pack test --chrome --headless -- --features xxx-unstable-internal-use-only
