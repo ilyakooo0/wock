@@ -1,7 +1,6 @@
 use clap::{command, error::Result, Parser, Subcommand};
 use core::str;
-use nock::interpreter::{eval_pulled_gate, slam_pulled_gate, tar, InterpreterContext, Tanks};
-use nock::wash;
+use nock::interpreter::{ram_ttanks, slam_pulled_gate, tar, InterpreterContext, TTanks};
 use nock::{
     cue::cue_bytes,
     interpreter::{generate_interpreter_context, slam},
@@ -9,7 +8,6 @@ use nock::{
     noun::{cell, Atom, Noun},
 };
 use spinoff::Spinner;
-use std::borrow::Borrow;
 use std::cell::LazyCell;
 use std::{
     fs::File,
@@ -91,7 +89,7 @@ fn main() -> Result<(), std::io::Error> {
                         spinner.fail("Gate execution failed");
 
                         let mut spinner = new_spinner(String::from("Building trace"));
-                        let trace = wash(&mut ctx, &urbit, tanks);
+                        let trace = ram_ttanks(&mut ctx, tanks);
                         spinner.success("Trace built");
                         println!("{trace}");
                         exit(1);
@@ -182,13 +180,7 @@ fn compile_to_nock(
         &urbit,
         &cell(&Rc::new(Noun::from_bytes(b"hoon")), &ctx.nouns.sig),
     );
-    let hoon = or_wash_fail(
-        ctx,
-        urbit,
-        hoon,
-        spinner,
-        "Failed to read Hoon standard library",
-    );
+    let hoon = or_wash_fail(ctx, hoon, spinner, "Failed to read Hoon standard library");
     let (hoon_type, hoon) = hoon.as_cell().unwrap();
 
     spinner.update_text(format!("Compiling {root:#?}"));
@@ -206,7 +198,7 @@ fn compile_to_nock(
             ),
         ),
     );
-    let target = or_wash_fail(ctx, urbit, target, spinner, "Compilation failed");
+    let target = or_wash_fail(ctx, target, spinner, "Compilation failed");
 
     let (target_type, target_nock) = target.as_cell().unwrap();
 
@@ -222,7 +214,7 @@ fn compile_to_nock(
     );
     let combined_nock = cell(
         target_type,
-        &or_wash_fail(ctx, urbit, combined_nock, spinner, "Failed to combine Nock"),
+        &or_wash_fail(ctx, combined_nock, spinner, "Failed to combine Nock"),
     );
     Ok(combined_nock)
 }
@@ -244,8 +236,7 @@ fn read_nock_or_compile(
 
 fn or_wash_fail(
     ctx: &mut InterpreterContext,
-    urbit: &Rc<Noun>,
-    source: Result<Rc<Noun>, Tanks>,
+    source: Result<Rc<Noun>, TTanks>,
     spinner: &mut Spinner,
     fail_err: &str,
 ) -> Rc<Noun> {
@@ -253,7 +244,7 @@ fn or_wash_fail(
         Ok(source) => source,
         Err(tanks) => {
             spinner.fail(fail_err);
-            let washed_tanks = wash(ctx, urbit, tanks);
+            let washed_tanks = ram_ttanks(ctx, tanks);
             eprintln!("{}", washed_tanks);
             exit(1)
         }

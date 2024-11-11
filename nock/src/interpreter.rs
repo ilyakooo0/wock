@@ -1,6 +1,9 @@
+use core::str;
 use std::borrow::Borrow;
+use std::borrow::BorrowMut;
 use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::str::Utf8Error;
 
 use fplist::cons;
 use fplist::PersistentList;
@@ -22,6 +25,7 @@ pub struct Nouns {
     pub two_three: Rc<Noun>,
     pub memo: Rc<Noun>,
     pub mean: Rc<Noun>,
+    pub slog: Rc<Noun>,
 }
 
 #[derive(Clone)]
@@ -61,6 +65,7 @@ pub fn generate_interpreter_context() -> InterpreterContext {
     let two_three = cell(&two, &three);
     let memo = Rc::new(Noun::from_bytes(b"memo"));
     let mean = Rc::new(Noun::from_bytes(b"mean"));
+    let slog = Rc::new(Noun::from_bytes(b"slog"));
     InterpreterContext {
         jets,
         double_jets,
@@ -76,6 +81,7 @@ pub fn generate_interpreter_context() -> InterpreterContext {
             two_three,
             memo,
             mean,
+            slog,
         },
         big_uints,
         memo: BTreeMap::new(),
@@ -89,7 +95,7 @@ fn wut<'a>(ctx: &'a InterpreterContext, noun: &Noun) -> &'a Rc<Noun> {
     }
 }
 
-fn lus(noun: &Noun) -> Result<Noun, Tanks> {
+fn lus(noun: &Noun) -> Result<Noun, TTanks> {
     match noun {
         Noun::Cell { .. } => Err(PersistentList::new()),
         Noun::Atom(atm) => Ok(Noun::Atom(atm + 1u32)),
@@ -104,7 +110,7 @@ fn tis<'a>(ctx: &'a InterpreterContext, lhs: &Noun, rhs: &Noun) -> &'a Rc<Noun> 
     }
 }
 
-fn fas(ctx: &InterpreterContext, addr: &Atom, noun: &Noun) -> Result<Rc<Noun>, Tanks> {
+fn fas(ctx: &InterpreterContext, addr: &Atom, noun: &Noun) -> Result<Rc<Noun>, TTanks> {
     let mut addr_iter = addr.iter_u32_digits();
 
     match (addr_iter.next(), addr_iter.next()) {
@@ -124,7 +130,7 @@ fn fas(ctx: &InterpreterContext, addr: &Atom, noun: &Noun) -> Result<Rc<Noun>, T
     }
 }
 
-fn fas_u32(addr: u32, noun: &Noun) -> Result<Rc<Noun>, Tanks> {
+fn fas_u32(addr: u32, noun: &Noun) -> Result<Rc<Noun>, TTanks> {
     match addr {
         0 => Err(PersistentList::new()),
         1 => Ok(Rc::new(noun.clone())),
@@ -142,7 +148,7 @@ fn fas_u32(addr: u32, noun: &Noun) -> Result<Rc<Noun>, Tanks> {
     }
 }
 
-fn hax_u32(addr: u32, new_value: &Rc<Noun>, target: &Rc<Noun>) -> Result<Rc<Noun>, Tanks> {
+fn hax_u32(addr: u32, new_value: &Rc<Noun>, target: &Rc<Noun>) -> Result<Rc<Noun>, TTanks> {
     match addr {
         0 => Err(PersistentList::new()),
         1 => Ok(new_value.clone()),
@@ -164,11 +170,11 @@ fn hax(
     addr: &Atom,
     new_value: &Rc<Noun>,
     target: &Rc<Noun>,
-) -> Result<Rc<Noun>, Tanks> {
+) -> Result<Rc<Noun>, TTanks> {
     let mut addr_iter = addr.iter_u32_digits();
 
     match (addr_iter.next(), addr_iter.next()) {
-        (None, _) => Err(Tanks::new()),
+        (None, _) => Err(TTanks::new()),
         (Some(x), None) => hax_u32(x, new_value, target),
         _ => hax(
             ctx,
@@ -190,15 +196,15 @@ fn tar_u32<'a>(
     subj: Rc<Noun>,
     op: u32,
     formula: &'a Rc<Noun>,
-) -> Result<Rc<Noun>, Tanks> {
+) -> Result<Rc<Noun>, TTanks> {
     match op {
         0 => {
-            let b = formula.as_atom().ok_or(Tanks::new())?;
+            let b = formula.as_atom().ok_or(TTanks::new())?;
             fas(ctx, b, &*subj)
         }
         1 => Ok(formula.clone()),
         2 => {
-            let (b, c) = formula.as_cell().ok_or(Tanks::new())?;
+            let (b, c) = formula.as_cell().ok_or(TTanks::new())?;
 
             match c.borrow() {
                 Noun::Cell { p, q, .. }
@@ -229,14 +235,14 @@ fn tar_u32<'a>(
         }
         4 => Ok(Rc::new(lus(&*tar(ctx, subj, &formula)?)?)),
         5 => {
-            let (b, c) = formula.as_cell().ok_or(Tanks::new())?;
+            let (b, c) = formula.as_cell().ok_or(TTanks::new())?;
             let foo = tar(ctx, subj.clone(), &b)?;
             let bar = tar(ctx, subj, &c)?;
             Ok(tis(ctx, &foo, &bar).clone())
         }
         6 => {
-            let (b, c) = formula.as_cell().ok_or(Tanks::new())?;
-            let (c, d) = c.as_cell().ok_or(Tanks::new())?;
+            let (b, c) = formula.as_cell().ok_or(TTanks::new())?;
+            let (c, d) = c.as_cell().ok_or(TTanks::new())?;
 
             let bar = tar_u32(ctx, subj.clone(), 4, &cell(&ctx.nouns.four.clone(), &b))?;
 
@@ -246,17 +252,17 @@ fn tar_u32<'a>(
             tar(ctx, subj, &foo)
         }
         7 => {
-            let (b, c) = formula.as_cell().ok_or(Tanks::new())?;
+            let (b, c) = formula.as_cell().ok_or(TTanks::new())?;
             let foo = tar(ctx, subj, &b)?;
             tar(ctx, foo, &c)
         }
         8 => {
-            let (b, c) = formula.as_cell().ok_or(Tanks::new())?;
+            let (b, c) = formula.as_cell().ok_or(TTanks::new())?;
             let foo = tar(ctx, subj.clone(), &b)?;
             tar(ctx, cell(&foo, &subj), &c)
         }
         9 => {
-            let (b, c) = formula.as_cell().ok_or(Tanks::new())?;
+            let (b, c) = formula.as_cell().ok_or(TTanks::new())?;
             let foo = tar(ctx, subj, &c)?;
             tar_u32(
                 ctx,
@@ -266,16 +272,16 @@ fn tar_u32<'a>(
             )
         }
         10 => {
-            let (b, d) = formula.as_cell().ok_or(Tanks::new())?;
-            let (b, c) = b.as_cell().ok_or(Tanks::new())?;
-            let b = b.as_atom().ok_or(Tanks::new())?;
+            let (b, d) = formula.as_cell().ok_or(TTanks::new())?;
+            let (b, c) = b.as_cell().ok_or(TTanks::new())?;
+            let b = b.as_atom().ok_or(TTanks::new())?;
 
             let foo = tar(ctx, subj.clone(), &c)?;
             let bar = tar(ctx, subj, &d)?;
             hax(ctx, b, &foo, &bar)
         }
         11 => {
-            let (b, d) = formula.as_cell().ok_or(Tanks::new())?;
+            let (b, d) = formula.as_cell().ok_or(TTanks::new())?;
             match b.borrow() {
                 Noun::Atom(_) => tar(ctx, subj, &d),
                 Noun::Cell { p, q, .. } => {
@@ -292,34 +298,155 @@ fn tar_u32<'a>(
                         }
                     } else if *p == ctx.nouns.mean {
                         with_trace((subj.clone(), q.clone()), eval(ctx))
+                    } else if *p == ctx.nouns.slog {
+                        let noun = tar(ctx, subj.clone(), &q)?;
+                        let (_prio, tank) = noun.as_cell().ok_or(TTanks::new())?;
+
+                        eprintln!("{}", ram(ctx, tank.clone()).unwrap_or(String::new()));
+                        eval(ctx)
                     } else {
                         eval(ctx)
                     }
                 }
             }
         }
-        _ => Err(Tanks::new()),
+        _ => Err(TTanks::new()),
     }
 }
 
-fn with_trace<T>(tank: (Rc<Noun>, Rc<Noun>), src: Result<T, Tanks>) -> Result<T, Tanks> {
+fn ram(ctx: &mut InterpreterContext, tank: Rc<Noun>) -> Option<String> {
+    match tank.borrow() {
+        Noun::Atom(str) => {
+            let mut bytes = str.to_bytes_le();
+            Some(String::from(str::from_utf8_mut(&mut bytes).ok()?))
+        }
+        Noun::Cell { p, q, .. } => {
+            let tag = p.as_atom()?.to_bytes_le();
+            if tag == b"leaf" {
+                let mut bytes = crip(ctx, q.clone()).ok()?.as_atom()?.to_bytes_le();
+                Some(String::from(str::from_utf8_mut(&mut bytes).ok()?))
+            } else if tag == b"palm" {
+                let (mid, foo) = q.as_cell()?;
+                let (open, foo) = foo.as_cell()?;
+                let (flat_open, foo) = foo.as_cell()?;
+                let (close, tanks) = foo.as_cell()?;
+
+                let mut mid = mid.as_bytes()?;
+                let mid = String::from(str::from_utf8_mut(&mut mid).ok()?);
+
+                let mut open = open.as_bytes()?;
+                let open = String::from(str::from_utf8_mut(&mut open).ok()?);
+
+                let mut flat_open = flat_open.as_bytes()?;
+                let flat_open = String::from(str::from_utf8_mut(&mut flat_open).ok()?);
+
+                let mut close = close.as_bytes()?;
+                let close = String::from(str::from_utf8_mut(&mut close).ok()?);
+
+                let mut target = String::new();
+
+                target.push_str(&*open);
+                target.push_str(&*flat_open);
+
+                let mut is_first = true;
+                for tank in tanks.list_iter() {
+                    if !is_first {
+                        target.push_str(&*mid);
+                    }
+
+                    target.push_str(&*(ram(ctx, tank.clone())?));
+
+                    is_first = false;
+                }
+
+                target.push_str(&*close);
+
+                Some(target)
+            } else if tag == b"rose" {
+                let (mid, foo) = q.as_cell()?;
+                let (open, foo) = foo.as_cell()?;
+                let (close, tanks) = foo.as_cell()?;
+
+                let mut mid = mid.as_bytes()?;
+                let mid = String::from(str::from_utf8_mut(&mut mid).ok()?);
+
+                let mut open = open.as_bytes()?;
+                let open = String::from(str::from_utf8_mut(&mut open).ok()?);
+
+                let mut close = close.as_bytes()?;
+                let close = String::from(str::from_utf8_mut(&mut close).ok()?);
+
+                let mut target = String::new();
+
+                target.push_str(&*open);
+
+                let mut is_first = true;
+                for tank in tanks.list_iter() {
+                    if !is_first {
+                        target.push_str(&*mid);
+                    }
+
+                    target.push_str(&*(ram(ctx, tank.clone())?));
+
+                    is_first = false;
+                }
+
+                target.push_str(&*close);
+
+                Some(target)
+            } else {
+                None
+            }
+        }
+    }
+}
+
+pub fn ram_ttanks(ctx: &mut InterpreterContext, tanks: TTanks) -> String {
+    let mut target = String::new();
+
+    for tank in tanks.iter() {
+        target.push_str(&*ram_ttank(ctx, tank.clone()));
+    }
+
+    target
+}
+
+pub fn ram_ttank(ctx: &mut InterpreterContext, ttank: TTank) -> String {
+    let (subj, q) = ttank;
+
+    let tank = match tar(ctx, subj.clone(), &q) {
+        Ok(gate) => match eval_pulled_gate(ctx, gate) {
+            Ok(tank) => tank,
+            Err(_) => return String::new(),
+        },
+        Err(_) => return String::new(),
+    };
+    ram(ctx, tank).unwrap_or(String::new())
+}
+
+fn crip(ctx: &mut InterpreterContext, tape: Rc<Noun>) -> Result<Rc<Noun>, TTanks> {
+    RAP(ctx, &cell(&Rc::new(Noun::from_u32(3)), &tape))
+}
+
+fn with_trace<T>(tank: (Rc<Noun>, Rc<Noun>), src: Result<T, TTanks>) -> Result<T, TTanks> {
     match src {
         Ok(a) => Ok(a),
         Err(tanks) => Err(cons(tank, tanks)),
     }
 }
 
-pub type Tank = Rc<Noun>;
-pub type Tanks = PersistentList<(Rc<Noun>, Rc<Noun>)>;
+/// Not actually a tank, but rather a thunk (subject, formula) which calculates the tank.
+pub type TTank = (Rc<Noun>, Rc<Noun>);
+pub type TTanks = PersistentList<TTank>;
 
-pub const EMPTY_TANKS: Tanks = Tanks::new();
+pub const EMPTY_TANKS: TTanks = TTanks::new();
 
 pub fn tar<'a>(
     ctx: &mut InterpreterContext,
     subj: Rc<Noun>,
     formula: &'a Noun,
-) -> Result<Rc<Noun>, Tanks> {
-    let (op, formula) = formula.as_cell().ok_or(Tanks::new())?;
+) -> Result<Rc<Noun>, TTanks> {
+    let (op, formula) = formula.as_cell().ok_or(TTanks::new())?;
     match op.borrow() {
         Noun::Cell { .. } => {
             let foo = tar(ctx, subj.clone(), &op)?;
@@ -333,13 +460,16 @@ pub fn tar<'a>(
                 1 => Some(op_iter.next().unwrap()),
                 _ => None,
             };
-            let op = op.ok_or(Tanks::new())?;
+            let op = op.ok_or(TTanks::new())?;
             stacker::maybe_grow(32 * 1024, 1024 * 1024, || tar_u32(ctx, subj, op, formula))
         }
     }
 }
 
-pub fn eval_gate(ctx: &mut InterpreterContext, gate_factory: &Rc<Noun>) -> Result<Rc<Noun>, Tanks> {
+pub fn eval_gate(
+    ctx: &mut InterpreterContext,
+    gate_factory: &Rc<Noun>,
+) -> Result<Rc<Noun>, TTanks> {
     let pulled_gate = tar(ctx, ctx.nouns.sig.clone(), &gate_factory)?;
     eval_pulled_gate(ctx, pulled_gate)
 }
@@ -348,7 +478,7 @@ pub fn slam(
     ctx: &mut InterpreterContext,
     gate_factory: &Rc<Noun>,
     sample: &Rc<Noun>,
-) -> Result<Rc<Noun>, Tanks> {
+) -> Result<Rc<Noun>, TTanks> {
     let gate = tar(ctx, ctx.nouns.sig.clone(), &gate_factory)?;
 
     eval_pulled_gate(ctx, replace_sample(&gate, sample)?)
@@ -356,7 +486,7 @@ pub fn slam(
 
 /// This is useful for evaluaing gates produced by running `.foo/nock gate-name` in the dojo.
 /// Also for calling gates from within jets.
-pub fn eval_pulled_gate(ctx: &mut InterpreterContext, gate: Rc<Noun>) -> Result<Rc<Noun>, Tanks> {
+pub fn eval_pulled_gate(ctx: &mut InterpreterContext, gate: Rc<Noun>) -> Result<Rc<Noun>, TTanks> {
     tar(
         ctx,
         gate,
@@ -373,13 +503,13 @@ pub fn slam_pulled_gate(
     ctx: &mut InterpreterContext,
     gate: &Rc<Noun>,
     sample: &Rc<Noun>,
-) -> Result<Rc<Noun>, Tanks> {
+) -> Result<Rc<Noun>, TTanks> {
     eval_pulled_gate(ctx, replace_sample(gate, sample)?)
 }
 
-pub fn replace_sample(gate: &Rc<Noun>, sample: &Rc<Noun>) -> Result<Rc<Noun>, Tanks> {
-    let (battery, payload) = gate.as_cell().ok_or(Tanks::new())?;
-    let (_sample, context) = payload.as_cell().ok_or(Tanks::new())?;
+pub fn replace_sample(gate: &Rc<Noun>, sample: &Rc<Noun>) -> Result<Rc<Noun>, TTanks> {
+    let (battery, payload) = gate.as_cell().ok_or(TTanks::new())?;
+    let (_sample, context) = payload.as_cell().ok_or(TTanks::new())?;
 
     Ok(cell(battery, &cell(sample, context)))
 }
