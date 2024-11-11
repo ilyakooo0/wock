@@ -2,7 +2,7 @@
 mod utils;
 
 use core::panic;
-use std::{cell::RefCell, rc::Rc};
+use std::{borrow::BorrowMut, cell::RefCell, rc::Rc};
 
 use dodrio::{
     bumpalo::{self, Bump},
@@ -30,15 +30,18 @@ extern "C" {
 }
 
 #[derive(Clone)]
-struct WockApp {
-    nock: Rc<Noun>,
-    ctx: RefCell<InterpreterContext>,
-    model: Rc<Noun>,
+struct Urbit {
     urbit: RefCell<Option<Rc<Noun>>>,
 }
 
-impl WockApp {
-    async fn get_urbit(self: &Self) -> Rc<Noun> {
+impl Urbit {
+    fn new() -> Urbit {
+        Urbit {
+            urbit: RefCell::new(None),
+        }
+    }
+
+    async fn get(self: &Self) -> Rc<Noun> {
         match self.urbit.borrow().clone() {
             Some(urbit) => urbit,
             None => {
@@ -55,6 +58,14 @@ impl WockApp {
     }
 }
 
+#[derive(Clone)]
+struct WockApp {
+    nock: Rc<Noun>,
+    ctx: RefCell<InterpreterContext>,
+    model: Rc<Noun>,
+    urbit: Rc<Urbit>,
+}
+
 impl<'a> Render<'a> for WockApp {
     fn render(&self, cx: &mut dodrio::RenderContext<'a>) -> dodrio::Node<'a> {
         match slam(
@@ -67,7 +78,7 @@ impl<'a> Render<'a> for WockApp {
                 let wock_app = self.clone();
                 let mut ctx = (*self.ctx.borrow()).clone();
                 spawn_local(async move {
-                    let urbit = wock_app.get_urbit().await;
+                    let urbit = wock_app.urbit.get().await;
                     let str = wash(&mut ctx, &urbit, tanks);
                     error_1(&JsValue::from_str(&str));
                 });
@@ -111,7 +122,8 @@ fn render_sail<'a>(ctx: &mut RenderContext<'a>, manx: Rc<Noun>) -> Node<'a> {
                                   _event: web_sys::Event| {
                                 let app = root.unwrap_mut::<WockApp>();
 
-                                let mut ctx = app.ctx.borrow_mut();
+                                let binding = app.ctx.clone();
+                                let mut ctx = binding.borrow_mut();
 
                                 let sig = ctx.nouns.sig.clone();
 
@@ -129,10 +141,19 @@ fn render_sail<'a>(ctx: &mut RenderContext<'a>, manx: Rc<Noun>) -> Node<'a> {
                                         app.model = new_model;
                                         vdom.schedule_render();
                                     }
-                                    Err(_) => error(&*format!(
-                                        "Application failed to process event: {}",
-                                        event
-                                    )),
+                                    Err(tanks) => {
+                                        let urbit = app.urbit.clone();
+                                        let mut ctx = ctx.borrow_mut().clone();
+                                        spawn_local(async move {
+                                            let urbit = urbit.get().await;
+                                            let str = wash(&mut ctx, &urbit, tanks);
+                                            error_1(&JsValue::from_str(&str));
+                                        });
+                                        error(&*format!(
+                                            "Application failed to process event: {}",
+                                            event
+                                        ))
+                                    }
                                 };
                             },
                         )
@@ -212,7 +233,7 @@ pub async fn main(path: &str) {
             nock,
             model,
             ctx: RefCell::new(ctx),
-            urbit: RefCell::new(None),
+            urbit: Rc::new(Urbit::new()),
         },
     )
     .forget();
