@@ -42,6 +42,7 @@ pub struct InterpreterContext {
     pub nouns: Nouns,
     pub big_uints: BigUints,
     pub memo: BTreeMap<Hash, Rc<Noun>>,
+    pub slog: fn(&String) -> (),
 }
 
 pub fn generate_interpreter_context() -> InterpreterContext {
@@ -83,6 +84,7 @@ pub fn generate_interpreter_context() -> InterpreterContext {
         },
         big_uints,
         memo: BTreeMap::new(),
+        slog: |str: &String| eprintln!("{}", str),
     }
 }
 
@@ -300,7 +302,7 @@ fn tar_u32<'a>(
                         let noun = tar(ctx, subj.clone(), &q)?;
                         let (_prio, tank) = noun.as_cell().ok_or(TTanks::new())?;
 
-                        eprintln!("{}", ram(ctx, tank.clone()).unwrap_or(String::new()));
+                        (ctx.slog)(&ram(ctx, tank.clone()).unwrap_or(String::new()));
                         eval(ctx)
                     } else {
                         eval(ctx)

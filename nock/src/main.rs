@@ -67,7 +67,10 @@ enum RunCommand {
 
 fn main() -> Result<(), std::io::Error> {
     let urbit = LazyCell::new(GENERATE_URBIT);
-    let mut ctx = generate_interpreter_context();
+    let mut ctx = InterpreterContext {
+        slog: |_| {},
+        ..generate_interpreter_context()
+    };
 
     let cli = Cli::parse();
 
