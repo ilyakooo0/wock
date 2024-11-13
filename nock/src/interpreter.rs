@@ -1,9 +1,7 @@
 use core::str;
 use std::borrow::Borrow;
-use std::borrow::BorrowMut;
 use std::collections::BTreeMap;
 use std::rc::Rc;
-use std::str::Utf8Error;
 
 use fplist::cons;
 use fplist::PersistentList;
