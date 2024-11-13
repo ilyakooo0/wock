@@ -424,7 +424,7 @@ pub fn ram_ttank(ctx: &mut InterpreterContext, ttank: TTank) -> String {
     ram(ctx, tank).unwrap_or(String::new())
 }
 
-fn crip(ctx: &mut InterpreterContext, tape: Rc<Noun>) -> Result<Rc<Noun>, TTanks> {
+pub fn crip(ctx: &mut InterpreterContext, tape: Rc<Noun>) -> Result<Rc<Noun>, TTanks> {
     RAP(ctx, &cell(&Rc::new(Noun::from_u32(3)), &tape))
 }
 

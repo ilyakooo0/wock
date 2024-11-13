@@ -47,6 +47,10 @@ impl PartialEq for Noun {
 impl<'a> Noun {
     pub const SIG: Noun = Noun::Atom(BigUint::ZERO);
 
+    pub fn rc(self: Self) -> Rc<Self> {
+        Rc::new(self)
+    }
+
     pub fn from_u32(a: u32) -> Noun {
         Noun::Atom(Atom::new(vec![a]))
     }
@@ -96,6 +100,13 @@ impl<'a> Noun {
     pub fn as_cell(self: &'a Self) -> Option<(&'a Rc<Noun>, &'a Rc<Noun>)> {
         match self {
             Noun::Cell { p, q, .. } => Option::Some((p, q)),
+            _ => Option::None,
+        }
+    }
+
+    pub fn as_cell_cloned(self: &'a Self) -> Option<(Rc<Noun>, Rc<Noun>)> {
+        match self {
+            Noun::Cell { p, q, .. } => Option::Some((p.clone(), q.clone())),
             _ => Option::None,
         }
     }
@@ -241,6 +252,152 @@ impl<'a> Noun {
             None => None?,
         };
         Some(Edge { hair, result })
+    }
+}
+
+impl From<(Rc<Noun>, Rc<Noun>)> for Noun {
+    fn from(value: (Rc<Noun>, Rc<Noun>)) -> Self {
+        naked_cell(&value.0, &value.1)
+    }
+}
+
+impl From<(Rc<Noun>, Rc<Noun>, Rc<Noun>)> for Noun {
+    fn from(value: (Rc<Noun>, Rc<Noun>, Rc<Noun>)) -> Self {
+        naked_cell(&value.0, &cell(&value.1, &value.2))
+    }
+}
+
+impl From<(Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>)> for Noun {
+    fn from(value: (Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>)) -> Self {
+        naked_cell(&value.0, &cell(&value.1, &cell(&value.2, &value.3)))
+    }
+}
+
+impl From<(Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>)> for Noun {
+    fn from(value: (Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>)) -> Self {
+        naked_cell(
+            &value.0,
+            &cell(&value.1, &cell(&value.2, &cell(&value.3, &value.4))),
+        )
+    }
+}
+
+impl From<(Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>)> for Noun {
+    fn from(value: (Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>)) -> Self {
+        naked_cell(
+            &value.0,
+            &cell(
+                &value.1,
+                &cell(&value.2, &cell(&value.3, &cell(&value.4, &value.5))),
+            ),
+        )
+    }
+}
+
+impl
+    From<(
+        Rc<Noun>,
+        Rc<Noun>,
+        Rc<Noun>,
+        Rc<Noun>,
+        Rc<Noun>,
+        Rc<Noun>,
+        Rc<Noun>,
+    )> for Noun
+{
+    fn from(
+        value: (
+            Rc<Noun>,
+            Rc<Noun>,
+            Rc<Noun>,
+            Rc<Noun>,
+            Rc<Noun>,
+            Rc<Noun>,
+            Rc<Noun>,
+        ),
+    ) -> Self {
+        naked_cell(
+            &value.0,
+            &cell(
+                &value.1,
+                &cell(
+                    &value.2,
+                    &cell(&value.3, &cell(&value.4, &cell(&value.5, &value.6))),
+                ),
+            ),
+        )
+    }
+}
+
+impl From<Noun> for Option<(Rc<Noun>, Rc<Noun>)> {
+    fn from(value: Noun) -> Self {
+        value.as_cell_cloned()
+    }
+}
+
+impl From<Noun> for Option<(Rc<Noun>, Rc<Noun>, Rc<Noun>)> {
+    fn from(value: Noun) -> Self {
+        let (a, b) = value.as_cell_cloned()?;
+        let (b, c) = b.as_cell_cloned()?;
+        Some((a, b, c))
+    }
+}
+
+impl From<Noun> for Option<(Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>)> {
+    fn from(value: Noun) -> Self {
+        let (a, b) = value.as_cell_cloned()?;
+        let (b, c) = b.as_cell_cloned()?;
+        let (c, d) = c.as_cell_cloned()?;
+        Some((a, b, c, d))
+    }
+}
+
+impl From<Noun> for Option<(Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>)> {
+    fn from(value: Noun) -> Self {
+        let (a, b) = value.as_cell_cloned()?;
+        let (b, c) = b.as_cell_cloned()?;
+        let (c, d) = c.as_cell_cloned()?;
+        let (d, e) = d.as_cell_cloned()?;
+        Some((a, b, c, d, e))
+    }
+}
+
+impl From<Noun> for Option<(Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>, Rc<Noun>)> {
+    fn from(value: Noun) -> Self {
+        let (a, b) = value.as_cell_cloned()?;
+        let (b, c) = b.as_cell_cloned()?;
+        let (c, d) = c.as_cell_cloned()?;
+        let (d, e) = d.as_cell_cloned()?;
+        let (e, f) = e.as_cell_cloned()?;
+        Some((a, b, c, d, e, f))
+    }
+}
+
+impl From<Noun>
+    for Option<(
+        Rc<Noun>,
+        Rc<Noun>,
+        Rc<Noun>,
+        Rc<Noun>,
+        Rc<Noun>,
+        Rc<Noun>,
+        Rc<Noun>,
+    )>
+{
+    fn from(value: Noun) -> Self {
+        let (a, b) = value.as_cell_cloned()?;
+        let (b, c) = b.as_cell_cloned()?;
+        let (c, d) = c.as_cell_cloned()?;
+        let (d, e) = d.as_cell_cloned()?;
+        let (e, f) = e.as_cell_cloned()?;
+        let (f, g) = f.as_cell_cloned()?;
+        Some((a, b, c, d, e, f, g))
+    }
+}
+
+impl From<&[u8]> for Noun {
+    fn from(value: &[u8]) -> Self {
+        Noun::from_bytes(value)
     }
 }
 

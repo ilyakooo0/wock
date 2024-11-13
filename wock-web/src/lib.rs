@@ -92,17 +92,20 @@ fn render_sail<'a>(ctx: &mut RenderContext<'a>, manx: Rc<Noun>) -> Node<'a> {
 
                                 let binding = app.ctx.clone();
                                 let mut ctx = binding.borrow_mut();
-
                                 let sig = ctx.nouns.sig.clone();
 
-                                let event = cell(&value, &sig);
+                                let step: Rc<Noun> = Rc::new((value.clone(), sig).into());
 
                                 match slam(
                                     &mut ctx,
                                     &app.nock,
-                                    &cell(
-                                        &Rc::new(Noun::from_bytes(b"move")),
-                                        &cell(&app.model, &event),
+                                    &Rc::new(
+                                        (
+                                            Noun::from_bytes(b"move").rc(),
+                                            app.model.clone(),
+                                            step.clone(),
+                                        )
+                                            .into(),
                                     ),
                                 ) {
                                     Ok(new_model) => {
@@ -117,7 +120,7 @@ fn render_sail<'a>(ctx: &mut RenderContext<'a>, manx: Rc<Noun>) -> Node<'a> {
 
                                         error(&*format!(
                                             "Application failed to process event: {}",
-                                            event
+                                            step
                                         ))
                                     }
                                 };
