@@ -10,12 +10,11 @@ use dodrio::{
 };
 use nock::{
     cue::cue_bytes,
-    interpreter::{generate_interpreter_context, slam, InterpreterContext},
+    interpreter::{generate_interpreter_context, ram_ttanks, slam, InterpreterContext},
     noun::{cell, Noun},
-    wash,
 };
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::{spawn_local, JsFuture};
+use wasm_bindgen_futures::JsFuture;
 use web_sys::{console::error_1, Element};
 
 #[wasm_bindgen]
@@ -30,40 +29,10 @@ extern "C" {
 }
 
 #[derive(Clone)]
-struct Urbit {
-    urbit: RefCell<Option<Rc<Noun>>>,
-}
-
-impl Urbit {
-    fn new() -> Urbit {
-        Urbit {
-            urbit: RefCell::new(None),
-        }
-    }
-
-    async fn get(self: &Self) -> Rc<Noun> {
-        match self.urbit.borrow().clone() {
-            Some(urbit) => urbit,
-            None => {
-                let urbit = load_nock("/urbit.nock").await.unwrap_or_else(|err| {
-                    error_1(&err);
-                    panic!("Could not load urbit.")
-                });
-
-                self.urbit.replace(Some(urbit.clone()));
-
-                urbit
-            }
-        }
-    }
-}
-
-#[derive(Clone)]
 struct WockApp {
     nock: Rc<Noun>,
     ctx: RefCell<InterpreterContext>,
     model: Rc<Noun>,
-    urbit: Rc<Urbit>,
 }
 
 impl<'a> Render<'a> for WockApp {
@@ -75,13 +44,9 @@ impl<'a> Render<'a> for WockApp {
         ) {
             Ok(sail) => render_sail(cx, sail),
             Err(tanks) => {
-                let wock_app = self.clone();
-                let mut ctx = (*self.ctx.borrow()).clone();
-                spawn_local(async move {
-                    let urbit = wock_app.urbit.get().await;
-                    let str = wash(&mut ctx, &urbit, tanks);
-                    error_1(&JsValue::from_str(&str));
-                });
+                let str = ram_ttanks(&mut (*self).ctx.borrow_mut(), tanks);
+                error_1(&JsValue::from_str(&str));
+
                 panic!("Could not render");
             }
         }
@@ -142,13 +107,11 @@ fn render_sail<'a>(ctx: &mut RenderContext<'a>, manx: Rc<Noun>) -> Node<'a> {
                                         vdom.schedule_render();
                                     }
                                     Err(tanks) => {
-                                        let urbit = app.urbit.clone();
                                         let mut ctx = ctx.borrow_mut().clone();
-                                        spawn_local(async move {
-                                            let urbit = urbit.get().await;
-                                            let str = wash(&mut ctx, &urbit, tanks);
-                                            error_1(&JsValue::from_str(&str));
-                                        });
+
+                                        let str = ram_ttanks(&mut ctx, tanks);
+                                        error_1(&JsValue::from_str(&str));
+
                                         error(&*format!(
                                             "Application failed to process event: {}",
                                             event
@@ -216,12 +179,7 @@ pub async fn main(path: &str) {
     let model = match model {
         Ok(model) => model,
         Err(tanks) => {
-            let urbit = load_nock("/urbit.nock").await.unwrap_or_else(|err| {
-                error_1(&err);
-                panic!("Could not load urbit.")
-            });
-
-            let str = wash(&mut ctx, &urbit, tanks);
+            let str = ram_ttanks(&mut ctx, tanks);
             error_1(&JsValue::from_str(&str));
             panic!("Could not load initial model.");
         }
@@ -233,7 +191,6 @@ pub async fn main(path: &str) {
             nock,
             model,
             ctx: RefCell::new(ctx),
-            urbit: Rc::new(Urbit::new()),
         },
     )
     .forget();
