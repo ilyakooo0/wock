@@ -8,14 +8,17 @@ use dodrio::{
     bumpalo::{self, Bump},
     Attribute, Listener, Node, NodeKey, Render, RenderContext, RootRender, VdomWeak,
 };
+use gloo::net::{self, http::Request};
 use nock::{
     cue::cue_bytes,
     interpreter::{generate_interpreter_context, ram_ttanks, slam, InterpreterContext},
     noun::{cell, Noun},
 };
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::JsFuture;
-use web_sys::{console::error_1, Element};
+use web_sys::{
+    console::{error_1, log_1},
+    Element,
+};
 
 #[wasm_bindgen]
 extern "C" {
@@ -162,14 +165,17 @@ fn tape_to_bump_str<'a>(bump: &'a Bump, non: &Rc<Noun>) -> &'a str {
 #[wasm_bindgen]
 pub async fn main(path: &str) {
     let nock = load_nock(path).await.unwrap_or_else(|err| {
-        error_1(&err);
+        error(&*err.to_string());
         panic!("Could not load nock.")
     });
 
     let document = gloo::utils::document();
     let output_el: Element = document.get_element_by_id("output").unwrap();
 
-    let mut ctx = generate_interpreter_context();
+    let mut ctx = InterpreterContext {
+        slog: |str: &String| log_1(&JsValue::from_str(&*str)),
+        ..generate_interpreter_context()
+    };
 
     let model = slam(
         &mut ctx,
@@ -196,19 +202,10 @@ pub async fn main(path: &str) {
     .forget();
 }
 
-pub async fn load_nock(path: &str) -> Result<Rc<Noun>, JsValue> {
-    let window = web_sys::window().unwrap();
+pub async fn load_nock(path: &str) -> Result<Rc<Noun>, net::Error> {
+    let blob = Request::get(path).send().await?.binary().await?;
 
-    let resp = JsFuture::from(window.fetch_with_str(path)).await?;
-    assert!(resp.is_instance_of::<web_sys::Response>());
-    let resp: web_sys::Response = resp.dyn_into()?;
-    let blob = JsFuture::from(resp.blob()?).await?;
-    assert!(blob.is_instance_of::<web_sys::Blob>());
-    let blob: web_sys::Blob = blob.dyn_into()?;
-
-    let nock = js_sys::Uint8Array::new(&JsFuture::from(blob.array_buffer()).await?).to_vec();
-
-    let nock = cue_bytes(&*nock);
+    let nock = cue_bytes(&*blob);
     let (_typ, nok) = nock.as_cell().unwrap();
 
     Ok(nok.clone())
