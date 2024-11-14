@@ -193,7 +193,7 @@ fn hax(
 
 fn tar_u32<'a>(
     ctx: &mut InterpreterContext,
-    subj: Rc<Noun>,
+    subj: &'a Rc<Noun>,
     op: u32,
     formula: &'a Rc<Noun>,
 ) -> Result<Rc<Noun>, TTanks> {
@@ -216,16 +216,16 @@ fn tar_u32<'a>(
                     match ctx.jets.get(&hash) {
                         Some(f) => f(ctx, sample),
                         None => {
-                            let foo = tar(ctx, subj.clone(), &b)?;
+                            let foo = tar(ctx, subj, &b)?;
                             let bar = tar(ctx, subj, &c)?;
-                            tar(ctx, foo, &bar)
+                            tar(ctx, &foo, &bar)
                         }
                     }
                 }
                 _ => {
-                    let foo = tar(ctx, subj.clone(), &b)?;
+                    let foo = tar(ctx, subj, &b)?;
                     let bar = tar(ctx, subj, &c)?;
-                    tar(ctx, foo, &bar)
+                    tar(ctx, &foo, &bar)
                 }
             }
         }
@@ -236,7 +236,7 @@ fn tar_u32<'a>(
         4 => Ok(Rc::new(lus(&*tar(ctx, subj, &formula)?)?)),
         5 => {
             let (b, c) = formula.as_cell().ok_or(TTanks::new())?;
-            let foo = tar(ctx, subj.clone(), &b)?;
+            let foo = tar(ctx, subj, &b)?;
             let bar = tar(ctx, subj, &c)?;
             Ok(tis(ctx, &foo, &bar).clone())
         }
@@ -244,29 +244,29 @@ fn tar_u32<'a>(
             let (b, c) = formula.as_cell().ok_or(TTanks::new())?;
             let (c, d) = c.as_cell().ok_or(TTanks::new())?;
 
-            let bar = tar_u32(ctx, subj.clone(), 4, &cell(&ctx.nouns.four.clone(), &b))?;
+            let bar = tar_u32(ctx, subj, 4, &cell(&ctx.nouns.four.clone(), &b))?;
 
-            let foo = tar_u32(ctx, ctx.nouns.two_three.clone(), 0, &bar)?;
-            let foo = tar_u32(ctx, cell(&c, &d), 0, &foo)?;
+            let foo = tar_u32(ctx, &ctx.nouns.two_three.clone(), 0, &bar)?;
+            let foo = tar_u32(ctx, &cell(&c, &d), 0, &foo)?;
 
             tar(ctx, subj, &foo)
         }
         7 => {
             let (b, c) = formula.as_cell().ok_or(TTanks::new())?;
             let foo = tar(ctx, subj, &b)?;
-            tar(ctx, foo, &c)
+            tar(ctx, &foo, &c)
         }
         8 => {
             let (b, c) = formula.as_cell().ok_or(TTanks::new())?;
-            let foo = tar(ctx, subj.clone(), &b)?;
-            tar(ctx, cell(&foo, &subj), &c)
+            let foo = tar(ctx, subj, &b)?;
+            tar(ctx, &cell(&foo, &subj), &c)
         }
         9 => {
             let (b, c) = formula.as_cell().ok_or(TTanks::new())?;
             let foo = tar(ctx, subj, &c)?;
             tar_u32(
                 ctx,
-                foo,
+                &foo,
                 2,
                 &cell(&ctx.nouns.sig_one, &cell(&ctx.nouns.sig, &b)),
             )
@@ -276,7 +276,7 @@ fn tar_u32<'a>(
             let (b, c) = b.as_cell().ok_or(TTanks::new())?;
             let b = b.as_atom().ok_or(TTanks::new())?;
 
-            let foo = tar(ctx, subj.clone(), &c)?;
+            let foo = tar(ctx, subj, &c)?;
             let bar = tar(ctx, subj, &d)?;
             hax(ctx, b, &foo, &bar)
         }
@@ -285,7 +285,7 @@ fn tar_u32<'a>(
             match b.borrow() {
                 Noun::Atom(_) => tar(ctx, subj, &d),
                 Noun::Cell { p, q, .. } => {
-                    let eval = |ctx: &mut InterpreterContext| tar(ctx, subj.clone(), &d);
+                    let eval = |ctx: &mut InterpreterContext| tar(ctx, subj, &d);
                     if *p == ctx.nouns.memo {
                         let hash = cell(&subj, &d).hash();
                         match ctx.memo.get(&hash) {
@@ -299,7 +299,7 @@ fn tar_u32<'a>(
                     } else if *p == ctx.nouns.mean {
                         with_trace((subj.clone(), q.clone()), eval(ctx))
                     } else if *p == ctx.nouns.slog {
-                        let noun = tar(ctx, subj.clone(), &q)?;
+                        let noun = tar(ctx, subj, &q)?;
                         let (_prio, tank) = noun.as_cell().ok_or(TTanks::new())?;
 
                         (ctx.slog)(&ram(ctx, tank.clone()).unwrap_or(String::new()));
@@ -411,7 +411,7 @@ pub fn ram_ttanks(ctx: &mut InterpreterContext, tanks: TTanks) -> String {
 pub fn ram_ttank(ctx: &mut InterpreterContext, ttank: TTank) -> String {
     let (subj, q) = ttank;
 
-    let tank = match tar(ctx, subj.clone(), &q) {
+    let tank = match tar(ctx, &subj, &q) {
         Ok(gate) => match eval_pulled_gate(ctx, gate) {
             Ok(tank) => tank,
             Err(_) => {
@@ -444,13 +444,13 @@ pub const EMPTY_TANKS: TTanks = TTanks::new();
 
 pub fn tar<'a>(
     ctx: &mut InterpreterContext,
-    subj: Rc<Noun>,
+    subj: &'a Rc<Noun>,
     formula: &'a Noun,
 ) -> Result<Rc<Noun>, TTanks> {
     let (op, formula) = formula.as_cell().ok_or(TTanks::new())?;
     match op.borrow() {
         Noun::Cell { .. } => {
-            let foo = tar(ctx, subj.clone(), &op)?;
+            let foo = tar(ctx, subj, &op)?;
             let bar = tar(ctx, subj, &formula)?;
             Ok(cell(&foo, &bar))
         }
@@ -471,7 +471,7 @@ pub fn eval_gate(
     ctx: &mut InterpreterContext,
     gate_factory: &Rc<Noun>,
 ) -> Result<Rc<Noun>, TTanks> {
-    let pulled_gate = tar(ctx, ctx.nouns.sig.clone(), &gate_factory)?;
+    let pulled_gate = tar(ctx, &ctx.nouns.sig.clone(), &gate_factory)?;
     eval_pulled_gate(ctx, pulled_gate)
 }
 
@@ -480,7 +480,7 @@ pub fn slam(
     gate_factory: &Rc<Noun>,
     sample: &Rc<Noun>,
 ) -> Result<Rc<Noun>, TTanks> {
-    let gate = tar(ctx, ctx.nouns.sig.clone(), &gate_factory)?;
+    let gate = tar(ctx, &ctx.nouns.sig.clone(), &gate_factory)?;
 
     eval_pulled_gate(ctx, replace_sample(&gate, sample)?)
 }
@@ -490,7 +490,7 @@ pub fn slam(
 pub fn eval_pulled_gate(ctx: &mut InterpreterContext, gate: Rc<Noun>) -> Result<Rc<Noun>, TTanks> {
     tar(
         ctx,
-        gate,
+        &gate,
         &cell(
             &Rc::new(Noun::Atom(BigUint::new(vec![9]))),
             &cell(&ctx.nouns.two, &cell(&ctx.nouns.sig, &ctx.nouns.one)),

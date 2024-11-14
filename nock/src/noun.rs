@@ -301,6 +301,110 @@ impl<'a> Noun {
     }
 }
 
+pub trait AsNoun {
+    fn as_noun(self: &Self) -> Rc<Noun>;
+}
+
+impl AsNoun for Noun {
+    fn as_noun(self: &Self) -> Rc<Noun> {
+        Rc::new(self.clone())
+    }
+}
+
+impl AsNoun for Rc<Noun> {
+    fn as_noun(self: &Self) -> Rc<Noun> {
+        self.clone()
+    }
+}
+
+impl<A, B> AsNoun for (A, B)
+where
+    A: AsNoun,
+    B: AsNoun,
+{
+    fn as_noun(self: &Self) -> Rc<Noun> {
+        let (a, b) = self;
+
+        cell(&a.as_noun(), &b.as_noun())
+    }
+}
+
+impl<A, B, C> AsNoun for (A, B, C)
+where
+    A: AsNoun,
+    B: AsNoun,
+    C: AsNoun,
+{
+    fn as_noun(self: &Self) -> Rc<Noun> {
+        let (a, b, c) = self;
+
+        cell(&a.as_noun(), &cell(&b.as_noun(), &c.as_noun()))
+    }
+}
+
+impl<A, B, C, D> AsNoun for (A, B, C, D)
+where
+    A: AsNoun,
+    B: AsNoun,
+    C: AsNoun,
+    D: AsNoun,
+{
+    fn as_noun(self: &Self) -> Rc<Noun> {
+        let (a, b, c, d) = self;
+
+        cell(
+            &a.as_noun(),
+            &cell(&b.as_noun(), &cell(&c.as_noun(), &d.as_noun())),
+        )
+    }
+}
+
+impl<A, B, C, D, E> AsNoun for (A, B, C, D, E)
+where
+    A: AsNoun,
+    B: AsNoun,
+    C: AsNoun,
+    D: AsNoun,
+    E: AsNoun,
+{
+    fn as_noun(self: &Self) -> Rc<Noun> {
+        let (a, b, c, d, e) = self;
+
+        cell(
+            &a.as_noun(),
+            &cell(
+                &b.as_noun(),
+                &cell(&c.as_noun(), &cell(&d.as_noun(), &e.as_noun())),
+            ),
+        )
+    }
+}
+
+impl<A, B, C, D, E, F> AsNoun for (A, B, C, D, E, F)
+where
+    A: AsNoun,
+    B: AsNoun,
+    C: AsNoun,
+    D: AsNoun,
+    E: AsNoun,
+    F: AsNoun,
+{
+    fn as_noun(self: &Self) -> Rc<Noun> {
+        let (a, b, c, d, e, f) = self;
+
+        cell(
+            &a.as_noun(),
+            &cell(
+                &b.as_noun(),
+                &cell(
+                    &c.as_noun(),
+                    &cell(&d.as_noun(), &cell(&e.as_noun(), &f.as_noun())),
+                ),
+            ),
+        )
+    }
+}
+
 impl From<(Rc<Noun>, Rc<Noun>)> for Noun {
     fn from(value: (Rc<Noun>, Rc<Noun>)) -> Self {
         naked_cell(&value.0, &value.1)

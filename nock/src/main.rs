@@ -68,7 +68,7 @@ enum RunCommand {
 fn main() -> Result<(), std::io::Error> {
     let urbit = LazyCell::new(GENERATE_URBIT);
     let mut ctx = InterpreterContext {
-        slog: |_| {},
+        // slog: |_| {},
         ..generate_interpreter_context()
     };
 
@@ -139,7 +139,7 @@ fn main() -> Result<(), std::io::Error> {
             let (_typ, nok) = read_nock_or_compile(&mut spinner, &mut ctx, &urbit, &nock)?;
 
             let sig = ctx.nouns.sig.clone();
-            let result = tar(&mut ctx, sig, &nok).unwrap();
+            let result = tar(&mut ctx, &sig, &nok).unwrap();
 
             println!("{result}");
         }
