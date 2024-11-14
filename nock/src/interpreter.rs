@@ -323,24 +323,22 @@ fn ram(ctx: &mut InterpreterContext, tank: Rc<Noun>) -> Option<String> {
         Noun::Cell { p, q, .. } => {
             let tag = p.as_atom()?.to_bytes_le();
             if tag == b"leaf" {
-                let mut bytes = crip(ctx, q.clone()).ok()?.as_atom()?.to_bytes_le();
+                let mut bytes = crip(ctx, q.clone()).ok()?.as_bytes()?;
                 Some(String::from(str::from_utf8_mut(&mut bytes).ok()?))
             } else if tag == b"palm" {
-                let (mid, foo) = q.as_cell()?;
-                let (open, foo) = foo.as_cell()?;
-                let (flat_open, foo) = foo.as_cell()?;
-                let (close, tanks) = foo.as_cell()?;
+                let (spacers, tanks) = q.as_cell()?;
+                let (mid, open, flat_open, close) = spacers.tuple_4()?;
 
-                let mut mid = mid.as_bytes()?;
+                let mut mid = crip(ctx, mid.clone()).ok()?.as_bytes()?;
                 let mid = String::from(str::from_utf8_mut(&mut mid).ok()?);
 
-                let mut open = open.as_bytes()?;
+                let mut open = crip(ctx, open.clone()).ok()?.as_bytes()?;
                 let open = String::from(str::from_utf8_mut(&mut open).ok()?);
 
-                let mut flat_open = flat_open.as_bytes()?;
+                let mut flat_open = crip(ctx, flat_open.clone()).ok()?.as_bytes()?;
                 let flat_open = String::from(str::from_utf8_mut(&mut flat_open).ok()?);
 
-                let mut close = close.as_bytes()?;
+                let mut close = crip(ctx, close.clone()).ok()?.as_bytes()?;
                 let close = String::from(str::from_utf8_mut(&mut close).ok()?);
 
                 let mut target = String::new();
@@ -363,17 +361,16 @@ fn ram(ctx: &mut InterpreterContext, tank: Rc<Noun>) -> Option<String> {
 
                 Some(target)
             } else if tag == b"rose" {
-                let (mid, foo) = q.as_cell()?;
-                let (open, foo) = foo.as_cell()?;
-                let (close, tanks) = foo.as_cell()?;
+                let (spacers, tanks) = q.as_cell()?;
+                let (mid, open, close) = spacers.tuple_3()?;
 
-                let mut mid = mid.as_bytes()?;
+                let mut mid = crip(ctx, mid.clone()).ok()?.as_bytes()?;
                 let mid = String::from(str::from_utf8_mut(&mut mid).ok()?);
 
-                let mut open = open.as_bytes()?;
+                let mut open = crip(ctx, open.clone()).ok()?.as_bytes()?;
                 let open = String::from(str::from_utf8_mut(&mut open).ok()?);
 
-                let mut close = close.as_bytes()?;
+                let mut close = crip(ctx, close.clone()).ok()?.as_bytes()?;
                 let close = String::from(str::from_utf8_mut(&mut close).ok()?);
 
                 let mut target = String::new();
@@ -417,9 +414,13 @@ pub fn ram_ttank(ctx: &mut InterpreterContext, ttank: TTank) -> String {
     let tank = match tar(ctx, subj.clone(), &q) {
         Ok(gate) => match eval_pulled_gate(ctx, gate) {
             Ok(tank) => tank,
-            Err(_) => return String::new(),
+            Err(_) => {
+                return String::new();
+            }
         },
-        Err(_) => return String::new(),
+        Err(_) => {
+            return String::new();
+        }
     };
     ram(ctx, tank).unwrap_or(String::new())
 }

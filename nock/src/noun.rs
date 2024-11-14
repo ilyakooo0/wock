@@ -111,6 +111,52 @@ impl<'a> Noun {
         }
     }
 
+    pub fn tuple_2(self: &Self) -> Option<(&Rc<Noun>, &Rc<Noun>)> {
+        self.as_cell()
+    }
+
+    pub fn tuple_3(self: &Self) -> Option<(&Rc<Noun>, &Rc<Noun>, &Rc<Noun>)> {
+        let (a, b) = self.as_cell()?;
+        let (b, c) = b.as_cell()?;
+
+        Some((a, b, c))
+    }
+    pub fn tuple_4(self: &Self) -> Option<(&Rc<Noun>, &Rc<Noun>, &Rc<Noun>, &Rc<Noun>)> {
+        let (a, b) = self.as_cell()?;
+        let (b, c) = b.as_cell()?;
+        let (c, d) = c.as_cell()?;
+
+        Some((a, b, c, d))
+    }
+
+    pub fn tuple_5(self: &Self) -> Option<(&Rc<Noun>, &Rc<Noun>, &Rc<Noun>, &Rc<Noun>, &Rc<Noun>)> {
+        let (a, b) = self.as_cell()?;
+        let (b, c) = b.as_cell()?;
+        let (c, d) = c.as_cell()?;
+        let (d, e) = d.as_cell()?;
+
+        Some((a, b, c, d, e))
+    }
+
+    pub fn tuple_6(
+        self: &Self,
+    ) -> Option<(
+        &Rc<Noun>,
+        &Rc<Noun>,
+        &Rc<Noun>,
+        &Rc<Noun>,
+        &Rc<Noun>,
+        &Rc<Noun>,
+    )> {
+        let (a, b) = self.as_cell()?;
+        let (b, c) = b.as_cell()?;
+        let (c, d) = c.as_cell()?;
+        let (d, e) = d.as_cell()?;
+        let (e, f) = e.as_cell()?;
+
+        Some((a, b, c, d, e, f))
+    }
+
     pub fn is_sig(self: &Self) -> bool {
         match self {
             Noun::Atom(n) if *n == Atom::ZERO => true,

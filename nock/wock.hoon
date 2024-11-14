@@ -1,16 +1,21 @@
 =>
 |%
+++  hop
+  |$  step
+  $%
+    [%fetch request:http]
+  ==
 ++  wock-app
-  |$  [model event]
+  |$  [model step]
   $_  ^?
   |%
   ++  init  *model
   ++  view  |~  model  *manx
-  ++  move  |~  [model event]  *model
+  ++  move  |~  [model step]  *model
   --
 ++  app
-  |*  [model=mold event=mold]
-  |=  app=(wock-app model event)
+  |*  [model=mold step=mold]
+  |=  app=(wock-app model step)
   |=  [cmd=@tas args=*] 
   ?+  cmd  !!
     %init
@@ -18,19 +23,19 @@
     %view
       (view.app (model args))
     %move
-      =/  [=model event-tape=tape payload=*]  (,[model tape *] args)
-      (move.app [model (event [(crip event-tape) payload])])
+      =/  [=model step-tape=tape payload=*]  (,[model tape *] args)
+      (move.app [model (step [(crip step-tape) payload])])
   ==
 --
 =>
 |%
-+$  event
++$  step
   $%
     [%inc ~]
     [%dec ~]
   ==
 --
-%-  (app @ud event)
+%-  (app @ud step)
 |%
 ++  view
   |=  count=@ud
@@ -40,9 +45,9 @@
     ;button(on-click "inc"): +
     ;button(on-click "dec"): -
   ==
-++  init  8
+++  init  11
 ++  move
-  |=  [model=@ud step=event]
+  |=  [model=@ud step=step]
   ^-  @ud
   ?-  -.step
     %inc  +(model)
