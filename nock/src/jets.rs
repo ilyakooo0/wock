@@ -10,7 +10,7 @@ use std::{
 
 use crate::{
     interpreter::{slam_pulled_gate, InterpreterContext, TTanks, EMPTY_TANKS},
-    noun::{self, cell, Atom, Edge, Hair, Nail, Noun},
+    noun::{self, cell, AsNoun, Atom, Edge, Hair, Nail, Noun},
 };
 
 fn traverse_iter_result<E: Clone, T: Clone, I: Iterator<Item = Result<T, E>>>(
@@ -112,6 +112,7 @@ pub fn generate_jets() -> Jets {
         (299422828284010240628877806738195667652, DOR),
         (166326796552601297695313176538120818632, GOR),
         (7942398240152905363972500667649380756, MOR),
+        (315687984998079865981003916817293521765, LOOK),
     ])
 }
 
@@ -1095,6 +1096,18 @@ static GOR: Jet = |ctx, n| {
     }
 };
 
+static GOR_PAIR: fn(&mut InterpreterContext, &Rc<Noun>, &Rc<Noun>) -> Result<bool, TTanks> =
+    |ctx, a, b| {
+        let c = a.mug();
+        let d = b.mug();
+
+        if c == d {
+            Ok(DOR(ctx, &(a.clone(), b.clone()).as_noun())? == ctx.nouns.y)
+        } else {
+            Ok(c < d)
+        }
+    };
+
 static MOR: Jet = |ctx, n| {
     let (a, b) = n.as_cell().ok_or(EMPTY_TANKS)?;
     let c = Noun::from_u32(a.mug()).mug();
@@ -1107,6 +1120,58 @@ static MOR: Jet = |ctx, n| {
             Ok(ctx.nouns.y.clone())
         } else {
             Ok(ctx.nouns.n.clone())
+        }
+    }
+};
+
+static LOOK: Jet = |ctx, n| {
+    let (cog, dab) = n.as_cell().ok_or(EMPTY_TANKS)?;
+    LOOK_PAIR(ctx, Atom::new(vec![1]), cog, dab)
+};
+
+static LOOK_PAIR: fn(
+    &mut InterpreterContext,
+    Atom,
+    &Rc<Noun>,
+    &Rc<Noun>,
+) -> Result<Rc<Noun>, TTanks> = |ctx, axe, cog, dab| {
+    if dab.is_sig() {
+        Ok(ctx.nouns.sig.clone())
+    } else {
+        let (node, b, c) = dab.tuple_3().ok_or(EMPTY_TANKS)?;
+        let l = b;
+        let r = c;
+        let (p, q) = node.as_cell().ok_or(EMPTY_TANKS)?;
+        if b.is_sig() && c.is_sig() {
+            if cog == p {
+                Ok((ctx.nouns.sig.clone(), Noun::Atom(axe), q.clone()).as_noun())
+            } else {
+                Ok(ctx.nouns.sig.clone())
+            }
+        } else if b.is_sig() {
+            if cog == p {
+                Ok((ctx.nouns.sig.clone(), PEG_U32(&axe, 2), q.clone()).as_noun())
+            } else if GOR_PAIR(ctx, cog, p)? {
+                Ok(ctx.nouns.sig.clone())
+            } else {
+                LOOK_PAIR(ctx, PEG_U32(&axe, 3), cog, r)
+            }
+        } else if c.is_sig() {
+            if cog == p {
+                Ok((ctx.nouns.sig.clone(), PEG_U32(&axe, 2), q.clone()).as_noun())
+            } else if GOR_PAIR(ctx, cog, p)? {
+                LOOK_PAIR(ctx, PEG_U32(&axe, 3), cog, l)
+            } else {
+                Ok(ctx.nouns.sig.clone())
+            }
+        } else {
+            if cog == p {
+                Ok((ctx.nouns.sig.clone(), PEG_U32(&axe, 2), q.clone()).as_noun())
+            } else if GOR_PAIR(ctx, cog, p)? {
+                LOOK_PAIR(ctx, PEG_U32(&axe, 6), cog, l)
+            } else {
+                LOOK_PAIR(ctx, PEG_U32(&axe, 7), cog, r)
+            }
         }
     }
 };

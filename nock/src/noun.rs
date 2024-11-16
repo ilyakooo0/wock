@@ -305,6 +305,12 @@ pub trait AsNoun {
     fn as_noun(self: &Self) -> Rc<Noun>;
 }
 
+impl AsNoun for Atom {
+    fn as_noun(self: &Self) -> Rc<Noun> {
+        Rc::new(Noun::Atom(self.clone()))
+    }
+}
+
 impl AsNoun for Noun {
     fn as_noun(self: &Self) -> Rc<Noun> {
         Rc::new(self.clone())
