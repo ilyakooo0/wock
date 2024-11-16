@@ -24,6 +24,7 @@ pub struct Nouns {
     pub memo: Rc<Noun>,
     pub mean: Rc<Noun>,
     pub slog: Rc<Noun>,
+    pub fast: Rc<Noun>,
 }
 
 #[derive(Clone)]
@@ -65,6 +66,7 @@ pub fn generate_interpreter_context() -> InterpreterContext {
     let memo = Rc::new(Noun::from_bytes(b"memo"));
     let mean = Rc::new(Noun::from_bytes(b"mean"));
     let slog = Rc::new(Noun::from_bytes(b"slog"));
+    let fast = Rc::new(Noun::from_bytes(b"fast"));
     InterpreterContext {
         jets,
         double_jets,
@@ -81,6 +83,7 @@ pub fn generate_interpreter_context() -> InterpreterContext {
             memo,
             mean,
             slog,
+            fast,
         },
         big_uints,
         memo: BTreeMap::new(),
@@ -303,6 +306,9 @@ fn tar_u32<'a>(
                         let (_prio, tank) = noun.as_cell().ok_or(TTanks::new())?;
 
                         (ctx.slog)(&ram(ctx, tank.clone()).unwrap_or(String::new()));
+                        eval(ctx)
+                    } else if *p == ctx.nouns.fast {
+                        // eprintln!("{}", q.as_cell().unwrap().1.as_cell().unwrap().0);
                         eval(ctx)
                     } else {
                         eval(ctx)

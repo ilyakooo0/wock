@@ -2,13 +2,14 @@ use core::panic;
 use murmur3::murmur3_32;
 use num_integer::Integer;
 use std::{
+    borrow::Borrow,
     collections::BTreeMap,
     iter::{once, repeat_n, zip},
     rc::Rc,
 };
 
 use crate::{
-    interpreter::{slam_pulled_gate, InterpreterContext, TTanks},
+    interpreter::{slam_pulled_gate, InterpreterContext, TTanks, EMPTY_TANKS},
     noun::{self, cell, Atom, Edge, Hair, Nail, Noun},
 };
 
@@ -107,6 +108,10 @@ pub fn generate_jets() -> Jets {
         (124976064672625230427889101290245200507, TRIP),
         (4078279288073906183633157465551067635, MUK),
         (261900159748071234702685239353558471892, MUG),
+        (198191257620924788695943358402651905954, AOR),
+        (299422828284010240628877806738195667652, DOR),
+        (166326796552601297695313176538120818632, GOR),
+        (7942398240152905363972500667649380756, MOR),
     ])
 }
 
@@ -1005,6 +1010,105 @@ static MUK: Jet = |_ctx, n| {
     let key = key.as_atom().ok_or(TTanks::new())?;
 
     Ok(Rc::new(Noun::from_u32(muk(seed, len, key))))
+};
+
+static AOR: Jet = |ctx, n| {
+    let (a, b) = n.as_cell().ok_or(EMPTY_TANKS)?;
+
+    if a == b {
+        Ok(ctx.nouns.y.clone())
+    } else {
+        match (a.borrow(), b.borrow()) {
+            (Noun::Cell { .. }, Noun::Atom(_)) => Ok(ctx.nouns.n.clone()),
+            (Noun::Cell { p: a_p, q: a_q, .. }, Noun::Cell { p: b_p, q: b_q, .. }) => {
+                if a_p == b_p {
+                    AOR(ctx, &cell(a_q, b_q))
+                } else {
+                    AOR(ctx, &cell(a_p, b_p))
+                }
+            }
+            (Noun::Atom(_), Noun::Cell { .. }) => Ok(ctx.nouns.y.clone()),
+            (Noun::Atom(a), Noun::Atom(b)) => {
+                let a = a.to_bytes_le();
+                let b = b.to_bytes_le();
+
+                let mut i = 0;
+                loop {
+                    let c = a.get(i).unwrap_or(&0);
+                    let d = b.get(i).unwrap_or(&0);
+
+                    if a[0] == b[0] {
+                        i += 1;
+                    } else {
+                        if c < d {
+                            return Ok(ctx.nouns.y.clone());
+                        } else {
+                            return Ok(ctx.nouns.n.clone());
+                        }
+                    }
+                }
+            }
+        }
+    }
+};
+
+static DOR: Jet = |ctx, n| {
+    let (a, b) = n.as_cell().ok_or(EMPTY_TANKS)?;
+
+    if a == b {
+        Ok(ctx.nouns.y.clone())
+    } else {
+        match (a.borrow(), b.borrow()) {
+            (Noun::Cell { .. }, Noun::Atom(_)) => Ok(ctx.nouns.n.clone()),
+            (Noun::Cell { p: a_p, q: a_q, .. }, Noun::Cell { p: b_p, q: b_q, .. }) => {
+                if a_p == b_p {
+                    DOR(ctx, &cell(a_q, b_q))
+                } else {
+                    DOR(ctx, &cell(a_p, b_p))
+                }
+            }
+            (Noun::Atom(_), Noun::Cell { .. }) => Ok(ctx.nouns.y.clone()),
+            (Noun::Atom(a), Noun::Atom(b)) => {
+                if a < b {
+                    Ok(ctx.nouns.y.clone())
+                } else {
+                    Ok(ctx.nouns.n.clone())
+                }
+            }
+        }
+    }
+};
+
+static GOR: Jet = |ctx, n| {
+    let (a, b) = n.as_cell().ok_or(EMPTY_TANKS)?;
+    let c = a.mug();
+    let d = b.mug();
+
+    if c == d {
+        DOR(ctx, n)
+    } else {
+        if c < d {
+            Ok(ctx.nouns.y.clone())
+        } else {
+            Ok(ctx.nouns.n.clone())
+        }
+    }
+};
+
+static MOR: Jet = |ctx, n| {
+    let (a, b) = n.as_cell().ok_or(EMPTY_TANKS)?;
+    let c = Noun::from_u32(a.mug()).mug();
+    let d = Noun::from_u32(b.mug()).mug();
+
+    if c == d {
+        DOR(ctx, n)
+    } else {
+        if c < d {
+            Ok(ctx.nouns.y.clone())
+        } else {
+            Ok(ctx.nouns.n.clone())
+        }
+    }
 };
 
 static JUST: DoubleJet = |ctx, n, m| {
