@@ -1,6 +1,8 @@
 use clap::{command, error::Result, Parser, Subcommand};
 use core::str;
-use nock::interpreter::{ram_ttanks, slam_pulled_gate, tar, InterpreterContext, TTanks};
+use nock::interpreter::{
+    ram_ttanks, slam_pulled_gate, tar, InterpreterContext, TTanks, JET_COUNTER,
+};
 use nock::{
     cue::cue_bytes,
     interpreter::{generate_interpreter_context, slam},
@@ -65,7 +67,33 @@ enum RunCommand {
     },
 }
 
+fn print_jet_counter() {
+    let counter = JET_COUNTER.lock().unwrap();
+    let mut builder = tabled::builder::Builder::new();
+    builder.push_record(vec!["jet", "number of calls"]);
+    let mut counters = counter.iter().collect::<Vec<_>>();
+    counters.sort_unstable_by_key(|x| x.1);
+    for (key, count) in counters {
+        let key = String::from_utf8(key.to_bytes_le()).unwrap();
+        builder.push_record(vec![key, count.to_string()]);
+    }
+    println!(
+        "\n{}",
+        builder
+            .build()
+            .with(tabled::settings::style::Style::rounded())
+    );
+}
+
 fn main() -> Result<(), std::io::Error> {
+    if cfg!(feature = "count-jets") {
+        ctrlc::set_handler(|| {
+            print_jet_counter();
+            exit(1);
+        })
+        .unwrap();
+    }
+
     let urbit = LazyCell::new(GENERATE_URBIT);
     let mut ctx = InterpreterContext {
         // slog: |_| {},
@@ -143,6 +171,10 @@ fn main() -> Result<(), std::io::Error> {
 
             println!("{result}");
         }
+    }
+
+    if cfg!(feature = "count-jets") {
+        print_jet_counter()
     }
 
     Ok(())

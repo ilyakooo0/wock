@@ -1,14 +1,22 @@
 use core::str;
 use std::borrow::Borrow;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Mutex;
 
 use fplist::cons;
 use fplist::PersistentList;
+use lazy_static::lazy_static;
 use num_bigint::BigUint;
 
 use crate::jets::*;
 use crate::noun::*;
+
+// #[cfg(feature = "count-jets")]
+lazy_static! {
+    pub static ref JET_COUNTER: Mutex<HashMap<Atom, u32>> = Mutex::new(HashMap::new());
+}
 
 #[derive(Clone)]
 pub struct Nouns {
@@ -308,7 +316,26 @@ fn tar_u32<'a>(
                         (ctx.slog)(&ram(ctx, tank.clone()).unwrap_or(String::new()));
                         eval(ctx)
                     } else if *p == ctx.nouns.fast {
-                        // eprintln!("{}", q.as_cell().unwrap().1.as_cell().unwrap().0);
+                        if cfg!(feature = "count-jets") {
+                            let tag = q.as_cell().unwrap().1.as_cell().unwrap().0.as_atom();
+                            match tag {
+                                None => (),
+                                Some(tag) => {
+                                    let mut counter = JET_COUNTER.lock().unwrap();
+                                    match counter.get(tag) {
+                                        None => {
+                                            counter.insert(tag.clone(), 1);
+                                            ()
+                                        }
+                                        Some(v) => {
+                                            let v = *v;
+                                            counter.insert(tag.clone(), v + 1);
+                                            ()
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         eval(ctx)
                     } else {
                         eval(ctx)
@@ -407,8 +434,15 @@ fn ram(ctx: &mut InterpreterContext, tank: Rc<Noun>) -> Option<String> {
 pub fn ram_ttanks(ctx: &mut InterpreterContext, tanks: TTanks) -> String {
     let mut target = String::new();
 
-    for tank in tanks.iter() {
+    let mut first = true;
+    for tank in tanks.iter().collect::<Vec<_>>().iter().cloned().rev() {
+        if !first {
+            target.push('\n');
+        }
+
         target.push_str(&*ram_ttank(ctx, tank.clone()));
+
+        first = false;
     }
 
     target
